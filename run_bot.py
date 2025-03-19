@@ -1,6 +1,7 @@
 import asyncio
 import os
-from datetime import date
+from datetime import date, time
+import re
 from typing import Optional
 
 from aiogram import Bot, Dispatcher
@@ -8,15 +9,16 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import Message, CallbackQuery
-from sqlalchemy import insert
+from sqlalchemy import and_, insert, select
 from sqlalchemy.orm import Session
 
-from models import engine, TgAccounts, Order
+from constants import GET_LIST
+from models import Offices, engine, TgAccounts, Order
 from keyboards import (create_all_offices_keyboard, confirm_keyboard,
                        remove_keyboard)
-from function import (get_datetime_in_timezone_for_message, get_slot_order,
-                      string_generate, return_office, check_order_today,
-                      check_user_today)
+from function import (check_order_today, check_user_today, collect_orders_for_interval,
+                      get_datetime_in_timezone_for_message, get_slot_order, parse_hours_from_admin_message,
+                      return_office, string_generate)
 
 
 # Инициализация бота и диспетчера:
@@ -135,7 +137,6 @@ async def process_confirm_callback(callback_query: CallbackQuery) -> None:
     """
     office_id = int(callback_query.data.replace('confirm_', ''))  # ID кабинета
     tg_account_id = callback_query.from_user.id  # ID пользователя
-    today = date.today()  # Текущая дата
 
     with Session(engine) as session:
         office = return_office(session, office_id)
@@ -189,6 +190,34 @@ async def process_cancel_callback(callback_query: CallbackQuery) -> None:
     await remove_keyboard(callback_query.message)
 
     await callback_query.message.answer('Выбор кабинета отменен.')
+
+
+@dp.message(lambda message: message.text.startswith(f'{GET_LIST}_'))
+async def list_orders_handler(message: Message) -> None:
+    """
+    Обработчик команды /list_orders. Выводит список заявок для отрезка времени.
+    """
+    with Session(engine) as session:
+
+        hour_find = await parse_hours_from_admin_message(message)
+        if not hour_find:
+            return
+
+        orders_list = await collect_orders_for_interval(session, hour_find)
+
+        if not orders_list:
+            # Если заявок нет, отправляем сообщение
+            await message.answer(
+                f'Заявок, созданных до {hour_find}, не найдено.'
+            )
+            return
+
+        # Отправляем список заявок пользователю
+        await message.answer(
+            f'Список заявок, созданных до {hour_find} часов:\n'
+            + '------------------------------------------\n'
+            + '\n'.join(orders_list)
+        )
 
 
 # Run the bot

@@ -1,11 +1,12 @@
 from datetime import time
 from random import randint
+import re
 from typing import Optional
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import and_, select
 
-from constants import FIRST_SECTION, OUR_TIMEZONE, SECOND_SECTION
+from constants import FIRST_SECTION, GET_LIST, OUR_TIMEZONE, SECOND_SECTION
 from models import Offices, Order
 
 
@@ -92,3 +93,49 @@ def get_slot_order(localized_time):
         return f'в {SECOND_SECTION} часов'
     else:
         return f'на следующий рабочий день в {FIRST_SECTION} часов'
+
+
+async def collect_orders_for_interval(session, hour_find) -> Optional[list]:
+    """
+    Формируем список заявок по времени и выдает их список или ничего.
+    """
+    orders = session.execute(
+        select(Order).where(
+            and_(
+                Order.order_time < time(hour_find, 0),
+                Order.in_archive == False  # Заявки не в архиве
+            )
+        )
+    ).scalars().all()
+
+    if not orders:
+        # Если заявок нет, отправляем сообщение
+        # await message.answer("Заявок, созданных до 10 утра, не найдено.")
+        return None
+
+    orders_list = []
+    for order in orders:
+        office = session.get(Offices, order.office_id)  # Получаем кабинет
+        orders_list.append(
+            f'Здание: {office.build.name.lower()}, кабинет: {office.abbr}'
+        )
+    return orders_list
+
+
+async def parse_hours_from_admin_message(message):
+    """
+    Захватывает сообщение из запроса админа.
+    """
+    pattern = fr'{GET_LIST}_(?P<hour>\d+)$'
+    hour_in_message = re.search(pattern, message.text)
+
+    if not hour_in_message:
+        await message.answer("Некорректный формат команды.")
+        return False
+
+    hour_find = int(hour_in_message.group('hour'))
+
+    if hour_find not in range(0, 25):
+        await message.answer(f'Где вы видели {hour_find} час.')
+        return False
+    return hour_find
