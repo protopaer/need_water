@@ -26,6 +26,7 @@ class Offices(Base):
     """Модель кабинетов."""
     abbr = Column(String(7), nullable=False)
     name = Column(String(40), nullable=False)
+    office_number = Column(Integer, nullable=True)
     build_id = Column(
         Integer, ForeignKey('builds.id'), nullable=False
     )
@@ -33,7 +34,7 @@ class Offices(Base):
     build = relationship("Builds", backref="orders")
 
     def __repr__(self):
-        return self.abbr
+        return f'{self.abbr} /каб. {self.office_number}/'
 
 
 class TgAccounts(Base):

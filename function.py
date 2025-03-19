@@ -110,19 +110,18 @@ async def collect_orders_for_interval(session, hour_find) -> Optional[list]:
     ).scalars().all()
 
     if not orders:
-        # Если заявок нет, отправляем сообщение
-        # await message.answer("Заявок, созданных до 10 утра, не найдено.")
         return None
 
     buildings = defaultdict(list)
 
     for order in orders:
         office = session.get(Offices, order.office_id)
-        building_name = office.build.name.upper()
-        buildings[building_name].append(office.abbr)
+        if office and office.build:
+            building_name = office.build.name.upper()
+            buildings[building_name].append(office.__repr__())
 
     formatted_orders = []
-    for building, offices in buildings.items():
+    for building, offices in sorted(buildings.items()):
         formatted_orders.append(f'Здание: {building}')
         for office in offices:
             formatted_orders.append(f' - {office}')
@@ -137,7 +136,7 @@ async def parse_hours_from_admin_message(message):
     hour_in_message = re.search(pattern, message.text)
 
     if not hour_in_message:
-        await message.answer("Некорректный формат команды.")
+        await message.answer('Некорректный формат команды.')
         return False
 
     hour_find = int(hour_in_message.group('hour'))

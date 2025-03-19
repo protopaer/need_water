@@ -175,7 +175,7 @@ async def process_confirm_callback(callback_query: CallbackQuery) -> None:
         # Отправляем подтверждение пользователю
         await callback_query.message.answer(
             f'Заказ воды для {office.abbr} создан.\n'
-            f'Обработка {order_in_time}!\n'
+            f'Вода можна пить точна {order_in_time}!\n'
             'Ожидайте…'
         )
 
@@ -226,5 +226,5 @@ async def main() -> None:
     await dp.start_polling(bot)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     asyncio.run(main())
