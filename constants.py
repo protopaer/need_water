@@ -1,0 +1,4 @@
+FIRST_SECTION = 10
+SECOND_SECTION = 13
+
+OUR_TIMEZONE = 'Asia/Yekaterinburg'

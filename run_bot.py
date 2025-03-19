@@ -14,7 +14,8 @@ from sqlalchemy.orm import Session
 from models import engine, TgAccounts, Order
 from keyboards import (create_all_offices_keyboard, confirm_keyboard,
                        remove_keyboard)
-from function import (string_generate, return_office, check_order_today,
+from function import (get_datetime_in_timezone_for_message, get_slot_order,
+                      string_generate, return_office, check_order_today,
                       check_user_today)
 
 
@@ -146,6 +147,10 @@ async def process_confirm_callback(callback_query: CallbackQuery) -> None:
         # Удаляем клавиатуру после нажатия
         await remove_keyboard(callback_query.message)
 
+        localized_time = (
+            await get_datetime_in_timezone_for_message(callback_query)
+        )
+
         if await check_user_today(
             session, tg_account_id, today, callback_query
         ):
@@ -159,16 +164,20 @@ async def process_confirm_callback(callback_query: CallbackQuery) -> None:
             insert(Order).values(
                 office_id=office_id,
                 tg_account_id=tg_account_id,
-                order_date=callback_query.message.date.astimezone().date(),
-                order_time=callback_query.message.date.astimezone().time(),
+                order_date=localized_time.date(),
+                order_time=localized_time.time(),
                 in_archive=False
             )
         )
         session.commit()
 
+        order_in_time = get_slot_order(localized_time)
+
         # Отправляем подтверждение пользователю
         await callback_query.message.answer(
-            f'Заказ воды для {office.abbr} создан. Ожидайте!'
+            f'Заказ воды для {office.abbr} создан.\n'
+            f'Обработка {order_in_time}\n'
+            'Ожидайте!'
         )
 
 
