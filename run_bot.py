@@ -215,7 +215,7 @@ async def list_orders_handler(message: Message) -> None:
         # Отправляем список заявок пользователю
         await message.answer(
             f'Список заявок, созданных до {hour_find} часов:\n'
-            + '------------------------------------------\n'
+            + ('-' * 41) + '\n'
             + '\n'.join(orders_list)
         )
 

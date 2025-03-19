@@ -1,7 +1,8 @@
+from collections import defaultdict
 from datetime import time
 from random import randint
 import re
-from typing import Optional
+from typing import Any, Optional
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import and_, select
@@ -113,13 +114,19 @@ async def collect_orders_for_interval(session, hour_find) -> Optional[list]:
         # await message.answer("Заявок, созданных до 10 утра, не найдено.")
         return None
 
-    orders_list = []
+    buildings = defaultdict(list)
+
     for order in orders:
-        office = session.get(Offices, order.office_id)  # Получаем кабинет
-        orders_list.append(
-            f'Здание: {office.build.name.lower()}, кабинет: {office.abbr}'
-        )
-    return orders_list
+        office = session.get(Offices, order.office_id)
+        building_name = office.build.name.upper()
+        buildings[building_name].append(office.abbr)
+
+    formatted_orders = []
+    for building, offices in buildings.items():
+        formatted_orders.append(f'Здание: {building}')
+        for office in offices:
+            formatted_orders.append(f' - {office}')
+    return formatted_orders
 
 
 async def parse_hours_from_admin_message(message):
