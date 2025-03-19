@@ -12,7 +12,8 @@ from sqlalchemy import insert, and_, select
 from sqlalchemy.orm import Session
 
 from models import engine, TgAccounts, Order
-from keyboards import create_all_offices_keyboard, confirm_keyboard
+from keyboards import (create_all_offices_keyboard, confirm_keyboard,
+                       remove_keyboard)
 from function import string_generate, return_office
 
 
@@ -41,6 +42,7 @@ async def command_start_handler(
                 "Выберите кабинет:",
                 reply_markup=keyboard
             )
+            # FIXME после нажатия надо удалить клавиатуру
         else:
             # Генерируем случайный код и сохраняем его в состоянии
             code = string_generate()  # рандом-код
@@ -78,6 +80,7 @@ async def process_code(message: Message, state: FSMContext) -> None:
                 'Выберите Ваш кабинет:',
                 reply_markup=keyboard
             )
+        # FIXME после нажатия надо удалить клавиатуру
     else:
         await message.answer('Неверный код.')
 
@@ -109,6 +112,9 @@ async def process_callback_button(callback_query: CallbackQuery) -> None:
         if not await check_office_exists(callback_query, office):
             return  # Если кабинет не найден, завершаем выполнение
 
+        # Удаляем клавиатуру после нажатия
+        await remove_keyboard(callback_query.message)
+
         # Если найден - отправляем запрос на подтверждение:
         await callback_query.message.answer(
             f'Выбран кабинет {office.abbr}. Всё верно?',
@@ -129,6 +135,9 @@ async def process_confirm_callback(callback_query: CallbackQuery) -> None:
         # Проверяем, существует ли кабинет
         if not await check_office_exists(callback_query, office):
             return  # Если кабинет не найден, завершаем выполнение
+
+        # Удаляем клавиатуру после нажатия
+        await remove_keyboard(callback_query.message)
 
         # Проверяем, есть ли уже заявка на сегодня
         existing_order = session.execute(
@@ -167,8 +176,10 @@ async def process_confirm_callback(callback_query: CallbackQuery) -> None:
 @dp.callback_query(lambda c: c.data == 'cancel')
 async def process_cancel_callback(callback_query: CallbackQuery) -> None:
     """Обработчик отмены выбора кабинета."""
-    # FIXME: если сначала создать, а потом нажать отмену - получаешь сообщение
-    # с отменой, при этом в базе экземпляр создается
+
+    # Удаляем клавиатуру после нажатия
+    await remove_keyboard(callback_query.message)
+
     await callback_query.message.answer('Выбор кабинета отменен.')
 
 
