@@ -149,17 +149,18 @@ async def process_confirm_callback(callback_query: CallbackQuery) -> None:
         if await check_user_today(
             session, tg_account_id, today, callback_query
         ):
-            return  # Если заявка уже есть, завершаем выполнение
+            return
 
         if await check_order_today(session, office, today, callback_query):
-            return  # Если заявка уже есть, завершаем выполнение
+            return
 
         # Создаем новую «заявку на воду» в таблице Order:
         session.execute(
             insert(Order).values(
                 office_id=office_id,
                 tg_account_id=tg_account_id,
-                order_date=today,
+                order_date=callback_query.message.date.astimezone().date(),
+                order_time=callback_query.message.date.astimezone().time(),
                 in_archive=False
             )
         )

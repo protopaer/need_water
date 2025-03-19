@@ -1,11 +1,7 @@
-from datetime import date
-
 from sqlalchemy import (Column, Integer, String, Boolean, create_engine,
-                        ForeignKey, Date)
+                        ForeignKey, Date, Time)
 from sqlalchemy.orm import (declared_attr, declarative_base, relationship)
 # from sqlalchemy.orm import Session
-
-today = date.today()
 
 
 class Base:
@@ -52,7 +48,8 @@ class Order(Base):
     tg_account_id = Column(
         Integer, ForeignKey('tgaccounts.id'), nullable=False
     )
-    order_date = Column(Date, default=today)
+    order_date = Column(Date, nullable=False)
+    order_time = Column(Time, nullable=False)
     in_archive = Column(Boolean, default=False)
 
     # Опционально: отношения для удобства доступа к связанным объектам

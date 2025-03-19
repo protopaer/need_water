@@ -24,7 +24,9 @@ async def check_order_today(session, office, today, callback_query):
         select(Order).where(
             and_(
                 Order.office_id == office.id,
-                Order.order_date == today
+                Order.order_date == (
+                    callback_query.message.date.astimezone().date()
+                )
             )
         )
     ).scalars().first()
@@ -46,7 +48,9 @@ async def check_user_today(session, tg_account_id, today, callback_query):
         select(Order).where(
             and_(
                 Order.tg_account_id == tg_account_id,  # Проверяем пользователя
-                Order.order_date == today  # Проверяем дату
+                Order.order_date == (
+                    callback_query.message.date.astimezone().date()
+                )
             )
         )
     ).scalars().first()
