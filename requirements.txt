@@ -19,3 +19,5 @@ python-dotenv==1.0.1
 SQLAlchemy==2.0.39
 typing_extensions==4.12.2
 yarl==1.18.3
+
+# apscheduler python-dateutil а я установил полностью пакет

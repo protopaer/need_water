@@ -2,9 +2,10 @@ from collections import defaultdict
 from datetime import time
 from random import randint
 import re
-from typing import Any, Optional
+from typing import Optional
 from zoneinfo import ZoneInfo
 
+from aiogram.types import CallbackQuery
 from sqlalchemy import and_, select
 
 from constants import FIRST_SECTION, GET_LIST, OUR_TIMEZONE, SECOND_SECTION
@@ -17,11 +18,11 @@ def string_generate():
 
 
 def return_office(session, office_id) -> Optional[Offices]:
-    """Возвращает кабинет."""
+    """Получив office_id - возвращает экземпляр Кабинета."""
     return session.query(Offices).filter(Offices.id == office_id).first()
 
 
-async def get_datetime_in_timezone_for_message(message_callback):
+def get_datetime_in_timezone_for_message(message_callback):
     """
     Получаем дататайм сообщения с учетом часового пояса.
     """
@@ -29,12 +30,51 @@ async def get_datetime_in_timezone_for_message(message_callback):
     return message_date.astimezone(ZoneInfo(OUR_TIMEZONE))
 
 
+def get_slot_order(localized_time):
+    """
+    Определяем время обработки заказа для подготовки ответа Пользователю.
+    """
+    order_time = localized_time.time()
+
+    if order_time < time(FIRST_SECTION, 0):
+        return f'в {FIRST_SECTION} часов'
+    elif time(FIRST_SECTION, 0) <= order_time < time(SECOND_SECTION, 0):
+        return f'в {SECOND_SECTION} часов'
+    else:
+        return f'на следующий рабочий день в {FIRST_SECTION} часов'
+
+
+def format_orders_message(hour: int, orders: Optional[list]) -> str:
+    """Формирование сообщения с заявками до указанного часа"""
+    if orders:
+        header = f'Список заявок, созданных до {hour} часов:\n'
+        message = header + '\n'.join(orders)
+    else:
+        message = f'Заявок, созданных до {hour}, не найдено.'
+
+    return message
+
+
+async def check_office_exists(callback_query: CallbackQuery, office) -> bool:
+    """
+    Проверяет, существует ли кабинет.
+
+    Найден - возвращает True.
+    Нет - отправляет сообщение об ошибке и возвращает False.
+    """
+    # TODO сомневаюсь, что это надо
+    if not office:
+        await callback_query.message.answer('Кабинет пропал.')
+        return False
+    return True
+
+
 async def check_order_today(session, office, callback_query):
     """
     Проверяем, есть ли уже заявка в выбранный кабинет на сегодня.
     """
     # Получаем дату с учетом часового пояса
-    localized_time = await get_datetime_in_timezone_for_message(callback_query)
+    localized_time = get_datetime_in_timezone_for_message(callback_query)
     today = localized_time.date()  # Извлекаем дату
 
     existing_order = session.execute(
@@ -61,7 +101,7 @@ async def check_user_today(session, tg_account_id, callback_query):
     Проверяем, есть ли уже заявка от этого Пользователя на сегодня.
     """
     # Получаем дату с учетом часового пояса
-    localized_time = await get_datetime_in_timezone_for_message(callback_query)
+    localized_time = get_datetime_in_timezone_for_message(callback_query)
     today = localized_time.date()  # Извлекаем дату
 
     existing_user_order = session.execute(
@@ -82,32 +122,20 @@ async def check_user_today(session, tg_account_id, callback_query):
     return False
 
 
-def get_slot_order(localized_time):
-    """"
-    Определяем время обработки заказа для подготовки ответа Пользователю.
-    """
-    order_time = localized_time.time()
-
-    if order_time < time(FIRST_SECTION, 0):
-        return f'в {FIRST_SECTION} часов'
-    elif time(FIRST_SECTION, 0) <= order_time < time(SECOND_SECTION, 0):
-        return f'в {SECOND_SECTION} часов'
-    else:
-        return f'на следующий рабочий день в {FIRST_SECTION} часов'
-
-
 async def collect_orders_for_interval(session, hour_find) -> Optional[list]:
     """
     Формируем список заявок по времени и выдает их список или ничего.
     """
-    orders = session.execute(
+    result = session.execute(
+    # result = await session.execute(
         select(Order).where(
             and_(
                 Order.order_time < time(hour_find, 0),
                 Order.in_archive == False  # Заявки не в архиве
             )
         )
-    ).scalars().all()
+    )
+    orders = result.scalars().all()
 
     if not orders:
         return None
@@ -122,7 +150,7 @@ async def collect_orders_for_interval(session, hour_find) -> Optional[list]:
 
     formatted_orders = []
     for building, offices in sorted(buildings.items()):
-        formatted_orders.append(f'Здание: {building}')
+        formatted_orders.append(('-' * 41) + '\n' + f'Здание: {building}')
         for office in offices:
             formatted_orders.append(f' - {office}')
     return formatted_orders
@@ -130,13 +158,14 @@ async def collect_orders_for_interval(session, hour_find) -> Optional[list]:
 
 async def parse_hours_from_admin_message(message):
     """
-    Захватывает сообщение из запроса админа.
+    Захватывает указанный админом в message час для формирования списка заявок.
     """
     pattern = fr'{GET_LIST}_(?P<hour>\d+)$'
     hour_in_message = re.search(pattern, message.text)
+    # hour_in_message = int(message.replace(GET_LIST, ''))  # альтернатива
 
     if not hour_in_message:
-        await message.answer('Некорректный формат команды.')
+        await message.answer('Некорректный формат при отправке команды.')
         return False
 
     hour_find = int(hour_in_message.group('hour'))

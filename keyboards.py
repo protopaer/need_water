@@ -63,6 +63,6 @@ def confirm_keyboard(office_id: int) -> InlineKeyboardMarkup:
 
 async def remove_keyboard(message) -> None:
     """
-    Удаляет клавиатуру из сообщения.
+    Удаляет клавиатуру из сообщения после нажатия Пользователем на кнопку.
     """
     await message.edit_reply_markup(reply_markup=None)

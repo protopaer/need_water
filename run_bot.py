@@ -1,7 +1,5 @@
 import asyncio
 import os
-from datetime import date, time
-import re
 from typing import Optional
 
 from aiogram import Bot, Dispatcher
@@ -9,21 +7,88 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import Message, CallbackQuery
-from sqlalchemy import and_, insert, select
-from sqlalchemy.orm import Session
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
+from sqlalchemy import insert
+from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from constants import GET_LIST
-from models import Offices, engine, TgAccounts, Order
+from constants import FIRST_SECTION, GET_LIST, OUR_TIMEZONE, SECOND_SECTION
+from models import engine, TgAccounts, Order
 from keyboards import (create_all_offices_keyboard, confirm_keyboard,
                        remove_keyboard)
-from function import (check_order_today, check_user_today, collect_orders_for_interval,
-                      get_datetime_in_timezone_for_message, get_slot_order, parse_hours_from_admin_message,
+from function import (check_office_exists, check_order_today, check_user_today,
+                      collect_orders_for_interval, format_orders_message,
+                      get_datetime_in_timezone_for_message,
+                      get_slot_order, parse_hours_from_admin_message,
                       return_office, string_generate)
 
 
 # Инициализация бота и диспетчера:
 TOKEN: Optional[str] = os.getenv('bot_token')
 dp = Dispatcher()
+
+# Планировщик
+scheduler = AsyncIOScheduler()
+
+# Фабрика асинхронных сессий
+AsyncSessionLocal = sessionmaker(
+    bind=engine,
+    class_=AsyncSession,
+    expire_on_commit=False,
+)
+
+
+def on_startup(bot: Bot):
+    """
+    Настройка расписания с действиями при запуске бота.
+    """
+    scheduler.add_job(
+        scheduled_message,
+        CronTrigger(hour=FIRST_SECTION, minute=0, timezone=OUR_TIMEZONE),
+        args=[bot],
+        id='first_section'
+    )
+    scheduler.add_job(
+        scheduled_message,
+        CronTrigger(hour=SECOND_SECTION, minute=39, timezone=OUR_TIMEZONE),
+        args=[bot],
+        id='second_section'
+    )
+    scheduler.start()
+    print('Планировщик стартовал!')
+
+
+async def scheduled_message(bot: Bot):
+    """
+    Отправка сообщения админам/подсобникам по расписанию.
+    """
+    async with AsyncSession() as session:
+        try:
+            first_interval_orders = (
+                await collect_orders_for_interval(session, FIRST_SECTION)
+            )
+            second_interval_orders = (
+                await collect_orders_for_interval(session, SECOND_SECTION)
+            )
+
+            message_text1 = format_orders_message(
+                FIRST_SECTION, first_interval_orders
+            )
+            message_text2 = format_orders_message(
+                SECOND_SECTION, second_interval_orders
+            )
+
+            # Получаем список администраторов:
+            admins_id = list(map(int, os.getenv('admin_id').split(',')))
+            for admin_id in admins_id:
+                try:
+                    await bot.send_message(admin_id, message_text1)
+                    await bot.send_message(admin_id, message_text2)
+                except Exception as e:
+                    print(f'Ошибка отправки: {e}')
+        except Exception as e:
+            print(f'Ошибка в scheduled_message: {e}')
 
 
 # Состояния для FSM
@@ -91,19 +156,6 @@ async def process_code(message: Message, state: FSMContext) -> None:
         await message.answer('Неверный код.')
 
 
-async def check_office_exists(callback_query: CallbackQuery, office) -> bool:
-    """
-    Проверяет, существует ли кабинет.
-
-    Найден - возвращает True.
-    Нет - отправляет сообщение об ошибке и возвращает False.
-    """
-    if not office:
-        await callback_query.message.answer('Кабинет пропал.')
-        return False
-    return True
-
-
 @dp.callback_query(lambda c: c.data.startswith('button'))
 async def process_callback_button(callback_query: CallbackQuery) -> None:
     """
@@ -116,11 +168,10 @@ async def process_callback_button(callback_query: CallbackQuery) -> None:
     with Session(engine) as session:
         office = return_office(session, office_id)
 
-        # Проверяем, существует ли кабинет
+        # Проверяем, существует ли кабинет (TODO сомневаюсь, что это надо)
         if not await check_office_exists(callback_query, office):
             return  # Если кабинет не найден, завершаем выполнение
 
-        # Удаляем клавиатуру после нажатия
         await remove_keyboard(callback_query.message)
 
         # Если найден - отправляем запрос на подтверждение:
@@ -141,6 +192,7 @@ async def process_confirm_callback(callback_query: CallbackQuery) -> None:
     with Session(engine) as session:
         office = return_office(session, office_id)
 
+        # TODO сомневаюсь, что это надо
         # Проверяем, существует ли кабинет
         if not await check_office_exists(callback_query, office):
             return  # Если кабинет не найден, завершаем выполнение
@@ -149,7 +201,7 @@ async def process_confirm_callback(callback_query: CallbackQuery) -> None:
         await remove_keyboard(callback_query.message)
 
         localized_time = (
-            await get_datetime_in_timezone_for_message(callback_query)
+            get_datetime_in_timezone_for_message(callback_query)
         )
 
         if await check_user_today(session, tg_account_id, callback_query):
@@ -175,7 +227,7 @@ async def process_confirm_callback(callback_query: CallbackQuery) -> None:
         # Отправляем подтверждение пользователю
         await callback_query.message.answer(
             f'Заказ воды для {office.abbr} создан.\n'
-            f'Вода можна пить точна {order_in_time}!\n'
+            f'Вода можна пить прям точна {order_in_time}!\n'
             'Ожидайте…'
         )
 
@@ -185,17 +237,14 @@ async def process_cancel_callback(callback_query: CallbackQuery) -> None:
     """
     Обработчик отмены выбора кабинета.
     """
-
-    # Удаляем клавиатуру после нажатия
     await remove_keyboard(callback_query.message)
-
     await callback_query.message.answer('Выбор кабинета отменен.')
 
 
 @dp.message(lambda message: message.text.startswith(f'{GET_LIST}_'))
 async def list_orders_handler(message: Message) -> None:
     """
-    Обработчик команды /list_orders. Выводит список заявок для отрезка времени.
+    Обработка команды админа направить список заявок до указанного часа.
     """
     with Session(engine) as session:
 
@@ -204,25 +253,15 @@ async def list_orders_handler(message: Message) -> None:
             return
 
         orders_list = await collect_orders_for_interval(session, hour_find)
+        text_in_message = format_orders_message(hour_find, orders_list)
 
-        if not orders_list:
-            # Если заявок нет, отправляем сообщение
-            await message.answer(
-                f'Заявок, созданных до {hour_find}, не найдено.'
-            )
-            return
-
-        # Отправляем список заявок пользователю
-        await message.answer(
-            f'Список заявок, созданных до {hour_find} часов:\n'
-            + ('-' * 41) + '\n'
-            + '\n'.join(orders_list)
-        )
+        await message.answer(text_in_message)
 
 
 # Run the bot
 async def main() -> None:
     bot = Bot(token=TOKEN)
+    # await on_startup(bot)
     await dp.start_polling(bot)
 
 
