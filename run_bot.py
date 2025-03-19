@@ -8,13 +8,14 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import Message, CallbackQuery
-from sqlalchemy import insert, and_, select
+from sqlalchemy import insert
 from sqlalchemy.orm import Session
 
 from models import engine, TgAccounts, Order
 from keyboards import (create_all_offices_keyboard, confirm_keyboard,
                        remove_keyboard)
-from function import string_generate, return_office
+from function import (string_generate, return_office, check_order_today,
+                      check_user_today)
 
 
 # Инициализация бота и диспетчера:
@@ -31,7 +32,9 @@ class RegistrationStates(StatesGroup):
 async def command_start_handler(
     message: Message, state: FSMContext
 ) -> None:
-    """Стартовая страница (страница авторизации или выбора кабинета)."""
+    """
+    Стартовая страница (страница авторизации или выбора кабинета).
+    """
     with Session(engine) as session:
         # Проверяем авторизацию пользователя
         keyboard = create_all_offices_keyboard(message, session)
@@ -42,7 +45,6 @@ async def command_start_handler(
                 "Выберите кабинет:",
                 reply_markup=keyboard
             )
-            # FIXME после нажатия надо удалить клавиатуру
         else:
             # Генерируем случайный код и сохраняем его в состоянии
             code = string_generate()  # рандом-код
@@ -55,7 +57,9 @@ async def command_start_handler(
 
 @dp.message(RegistrationStates.waiting_for_code)
 async def process_code(message: Message, state: FSMContext) -> None:
-    """Обработчик ввода кода авторизации (пока заглушка)."""
+    """
+    (Заглушка) Обработчик ввода кода авторизации.
+    """
     user_code = message.text  # Код, введенный пользователем
     data = await state.get_data()  # Получаем сохраненный код из состояния
     generated_code = str(data.get('code'))  # Преобразуем в строку
@@ -80,7 +84,6 @@ async def process_code(message: Message, state: FSMContext) -> None:
                 'Выберите Ваш кабинет:',
                 reply_markup=keyboard
             )
-        # FIXME после нажатия надо удалить клавиатуру
     else:
         await message.answer('Неверный код.')
 
@@ -100,9 +103,11 @@ async def check_office_exists(callback_query: CallbackQuery, office) -> bool:
 
 @dp.callback_query(lambda c: c.data.startswith('button'))
 async def process_callback_button(callback_query: CallbackQuery) -> None:
-    """Обработчик нажатия на кнопку кабинета.
+    """
+    Обработчик нажатия на кнопку кабинета.
 
-    Появляется, когда авторизованный пользователь нажан на кнопку кабинета."""
+    Появляется, когда авторизованный пользователь нажан на кнопку кабинета.
+    """
     office_id = int(callback_query.data.replace('button', ''))  # ID кабинета
 
     with Session(engine) as session:
@@ -124,7 +129,9 @@ async def process_callback_button(callback_query: CallbackQuery) -> None:
 
 @dp.callback_query(lambda c: c.data.startswith('confirm_'))
 async def process_confirm_callback(callback_query: CallbackQuery) -> None:
-    """Обработчик подтверждения выбора кабинета."""
+    """
+    Обработчик подтверждения выбора кабинета.
+    """
     office_id = int(callback_query.data.replace('confirm_', ''))  # ID кабинета
     tg_account_id = callback_query.from_user.id  # ID пользователя
     today = date.today()  # Текущая дата
@@ -139,22 +146,13 @@ async def process_confirm_callback(callback_query: CallbackQuery) -> None:
         # Удаляем клавиатуру после нажатия
         await remove_keyboard(callback_query.message)
 
-        # Проверяем, есть ли уже заявка на сегодня
-        existing_order = session.execute(
-            select(Order).where(
-                and_(
-                    Order.office_id == office_id,
-                    Order.order_date == today
-                )
-            )
-        ).scalars().first()
+        if await check_user_today(
+            session, tg_account_id, today, callback_query
+        ):
+            return  # Если заявка уже есть, завершаем выполнение
 
-        if existing_order:
-            # Если заявка уже существует, отправляем сообщение
-            await callback_query.message.answer(
-                f'Заявка для кабинета {office.abbr} на сегодня уже есть.'
-            )
-            return
+        if await check_order_today(session, office, today, callback_query):
+            return  # Если заявка уже есть, завершаем выполнение
 
         # Создаем новую «заявку на воду» в таблице Order:
         session.execute(
@@ -175,7 +173,9 @@ async def process_confirm_callback(callback_query: CallbackQuery) -> None:
 
 @dp.callback_query(lambda c: c.data == 'cancel')
 async def process_cancel_callback(callback_query: CallbackQuery) -> None:
-    """Обработчик отмены выбора кабинета."""
+    """
+    Обработчик отмены выбора кабинета.
+    """
 
     # Удаляем клавиатуру после нажатия
     await remove_keyboard(callback_query.message)
