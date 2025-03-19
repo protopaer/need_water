@@ -151,12 +151,10 @@ async def process_confirm_callback(callback_query: CallbackQuery) -> None:
             await get_datetime_in_timezone_for_message(callback_query)
         )
 
-        if await check_user_today(
-            session, tg_account_id, today, callback_query
-        ):
+        if await check_user_today(session, tg_account_id, callback_query):
             return
 
-        if await check_order_today(session, office, today, callback_query):
+        if await check_order_today(session, office, callback_query):
             return
 
         # Создаем новую «заявку на воду» в таблице Order:
@@ -176,8 +174,8 @@ async def process_confirm_callback(callback_query: CallbackQuery) -> None:
         # Отправляем подтверждение пользователю
         await callback_query.message.answer(
             f'Заказ воды для {office.abbr} создан.\n'
-            f'Обработка {order_in_time}\n'
-            'Ожидайте!'
+            f'Обработка {order_in_time}!\n'
+            'Ожидайте…'
         )
 
 
