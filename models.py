@@ -2,6 +2,7 @@ from sqlalchemy import (Column, Integer, String, Boolean, create_engine,
                         ForeignKey, Date, Time)
 from sqlalchemy.orm import (declared_attr, declarative_base, relationship)
 # from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import create_async_engine
 
 
 class Base:
@@ -58,6 +59,11 @@ class Order(Base):
     tg_account = relationship("TgAccounts", backref="orders")
 
 
-engine = create_engine('sqlite:///water.db', echo=False)
+# engine = create_engine('sqlite:///water.db', echo=False)
 
-Base.metadata.create_all(engine)
+DATABASE_URL = "sqlite+aiosqlite:///water.db"  # Пример для SQLite
+engine = create_async_engine(DATABASE_URL, echo=False)
+
+
+# # Когда нужно создать модели - раскомментируй
+# Base.metadata.create_all(engine)

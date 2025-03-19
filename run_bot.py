@@ -10,7 +10,7 @@ from aiogram.types import Message, CallbackQuery
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy import insert
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from constants import FIRST_SECTION, GET_LIST, OUR_TIMEZONE, SECOND_SECTION
@@ -39,31 +39,49 @@ AsyncSessionLocal = sessionmaker(
 )
 
 
-def on_startup(bot: Bot):
+async def on_startup(bot: Bot):
     """
     Настройка расписания с действиями при запуске бота.
     """
     scheduler.add_job(
-        scheduled_message,
+        send_interval_message,
         CronTrigger(hour=FIRST_SECTION, minute=0, timezone=OUR_TIMEZONE),
-        args=[bot],
+        args=[bot, FIRST_SECTION],
         id='first_section'
     )
     scheduler.add_job(
-        scheduled_message,
-        CronTrigger(hour=SECOND_SECTION, minute=39, timezone=OUR_TIMEZONE),
-        args=[bot],
+        send_interval_message,
+        CronTrigger(hour=SECOND_SECTION, minute=0, timezone=OUR_TIMEZONE),
+        args=[bot, SECOND_SECTION],
         id='second_section'
     )
     scheduler.start()
     print('Планировщик стартовал!')
 
 
+async def send_interval_message(bot: Bot, hour: int) -> None:
+    """
+    Отправляет сообщения администраторам для указанного интервала.
+    """
+    async with AsyncSessionLocal() as session:
+        try:
+            # Получаем данные о заказах для указанного интервала
+            orders = await collect_orders_for_interval(session, hour)
+            message_text = format_orders_message(hour, orders)
+
+            # Отправляем сообщения администраторам
+            admins_id = list(map(int, os.getenv('admin_id').split(',')))
+            for admin_id in admins_id:
+                await bot.send_message(admin_id, message_text)
+        except Exception as e:
+            print(f'Ошибка в send_interval_message для интервала {hour}: {e}')
+
+
 async def scheduled_message(bot: Bot):
     """
     Отправка сообщения админам/подсобникам по расписанию.
     """
-    async with AsyncSession() as session:
+    async with AsyncSessionLocal() as session:
         try:
             first_interval_orders = (
                 await collect_orders_for_interval(session, FIRST_SECTION)
@@ -103,7 +121,7 @@ async def command_start_handler(
     """
     Стартовая страница (страница авторизации или выбора кабинета).
     """
-    with Session(engine) as session:
+    async with AsyncSessionLocal() as session:
         # Проверяем авторизацию пользователя
         keyboard = create_all_offices_keyboard(message, session)
 
@@ -134,15 +152,15 @@ async def process_code(message: Message, state: FSMContext) -> None:
 
     if user_code == generated_code:
         # Если код верный, добавляем запись в таблицу TgAccounts
-        with Session(engine) as session:
+        async with AsyncSessionLocal() as session:
             # Добавляем запись в таблицу TgAccounts:
-            session.execute(
+            await session.execute(
                 insert(TgAccounts).values(
                     account=str(message.chat.id),
                     blocked=False
                 )
             )
-            session.commit()
+            await session.commit()
 
         keyboard = create_all_offices_keyboard(message, session)
 
@@ -165,8 +183,8 @@ async def process_callback_button(callback_query: CallbackQuery) -> None:
     """
     office_id = int(callback_query.data.replace('button', ''))  # ID кабинета
 
-    with Session(engine) as session:
-        office = return_office(session, office_id)
+    async with AsyncSessionLocal() as session:
+        office = await return_office(session, office_id)
 
         # Проверяем, существует ли кабинет (TODO сомневаюсь, что это надо)
         if not await check_office_exists(callback_query, office):
@@ -189,8 +207,8 @@ async def process_confirm_callback(callback_query: CallbackQuery) -> None:
     office_id = int(callback_query.data.replace('confirm_', ''))  # ID кабинета
     tg_account_id = callback_query.from_user.id  # ID пользователя
 
-    with Session(engine) as session:
-        office = return_office(session, office_id)
+    async with AsyncSessionLocal() as session:
+        office = await return_office(session, office_id)
 
         # TODO сомневаюсь, что это надо
         # Проверяем, существует ли кабинет
@@ -220,7 +238,7 @@ async def process_confirm_callback(callback_query: CallbackQuery) -> None:
                 in_archive=False
             )
         )
-        session.commit()
+        await session.commit()
 
         order_in_time = get_slot_order(localized_time)
 
@@ -246,7 +264,7 @@ async def list_orders_handler(message: Message) -> None:
     """
     Обработка команды админа направить список заявок до указанного часа.
     """
-    with Session(engine) as session:
+    async with AsyncSessionLocal() as session:
 
         hour_find = await parse_hours_from_admin_message(message)
         if not hour_find:
@@ -261,7 +279,7 @@ async def list_orders_handler(message: Message) -> None:
 # Run the bot
 async def main() -> None:
     bot = Bot(token=TOKEN)
-    # await on_startup(bot)
+    await on_startup(bot)
     await dp.start_polling(bot)
 
 

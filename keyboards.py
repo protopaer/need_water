@@ -4,11 +4,6 @@ from sqlalchemy import select
 from models import Offices, TgAccounts
 
 
-# session = Session(engine)
-# office_list = session.query(Offices).all()
-# valid_account = session.query(TgAccounts)
-
-
 def check_authorization(message, session) -> bool:
     """Проверяет, авторизован ли Пользователь."""
     tg_account = str(message.chat.id)  # Аккаунт из запроса

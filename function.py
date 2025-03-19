@@ -1,25 +1,21 @@
+import re
 from collections import defaultdict
 from datetime import time
 from random import randint
-import re
 from typing import Optional
 from zoneinfo import ZoneInfo
 
 from aiogram.types import CallbackQuery
 from sqlalchemy import and_, select
+from sqlalchemy.orm import selectinload
 
-from constants import FIRST_SECTION, GET_LIST, OUR_TIMEZONE, SECOND_SECTION
+from constants import GET_LIST, FIRST_SECTION, OUR_TIMEZONE, SECOND_SECTION
 from models import Offices, Order
 
 
 def string_generate():
     """Генерирует случайное число в телефонном справочнике."""
     return randint(0, 9)
-
-
-def return_office(session, office_id) -> Optional[Offices]:
-    """Получив office_id - возвращает экземпляр Кабинета."""
-    return session.query(Offices).filter(Offices.id == office_id).first()
 
 
 def get_datetime_in_timezone_for_message(message_callback):
@@ -55,6 +51,14 @@ def format_orders_message(hour: int, orders: Optional[list]) -> str:
     return message
 
 
+async def return_office(session, office_id) -> Optional[Offices]:
+    """Получив office_id - возвращает экземпляр Кабинета."""
+    result = await session.execute(
+        select(Offices).where(Offices.id == office_id)
+    )
+    return result.scalars().first()
+
+
 async def check_office_exists(callback_query: CallbackQuery, office) -> bool:
     """
     Проверяет, существует ли кабинет.
@@ -77,17 +81,17 @@ async def check_order_today(session, office, callback_query):
     localized_time = get_datetime_in_timezone_for_message(callback_query)
     today = localized_time.date()  # Извлекаем дату
 
-    existing_order = session.execute(
+    result = await session.execute(
         select(Order).where(
             and_(
                 Order.office_id == office.id,
                 Order.order_date == today
             )
         )
-    ).scalars().first()
+    )
+    existing_order = result.scalars().first()
 
-    if existing_order:
-        # Если заявка уже существует, отправляем сообщение
+    if existing_order:  # Если заявка уже существует, отправляем сообщение
         await callback_query.message.answer(
             'Отказано!\n'
             f'Заявка для кабинета {office.abbr} на сегодня уже есть.'
@@ -104,17 +108,17 @@ async def check_user_today(session, tg_account_id, callback_query):
     localized_time = get_datetime_in_timezone_for_message(callback_query)
     today = localized_time.date()  # Извлекаем дату
 
-    existing_user_order = session.execute(
+    result = await session.execute(
         select(Order).where(
             and_(
                 Order.tg_account_id == tg_account_id,  # Проверяем пользователя
                 Order.order_date == today
             )
         )
-    ).scalars().first()
+    )
+    existing_user_order = result.scalars().first()
 
-    if existing_user_order:
-        # Если заявка уже существует, отправляем сообщение
+    if existing_user_order:  # Если заявка уже существует
         await callback_query.message.answer(
             'Отказано!\nВы можете подать только одну заявку в день!'
         )
@@ -126,14 +130,14 @@ async def collect_orders_for_interval(session, hour_find) -> Optional[list]:
     """
     Формируем список заявок по времени и выдает их список или ничего.
     """
-    result = session.execute(
-    # result = await session.execute(
-        select(Order).where(
+    result = await session.execute(
+        select(Order)
+        .where(
             and_(
                 Order.order_time < time(hour_find, 0),
-                Order.in_archive == False  # Заявки не в архиве
+                Order.in_archive == False
             )
-        )
+        ).options(selectinload(Order.office).selectinload(Offices.build))
     )
     orders = result.scalars().all()
 
@@ -143,7 +147,7 @@ async def collect_orders_for_interval(session, hour_find) -> Optional[list]:
     buildings = defaultdict(list)
 
     for order in orders:
-        office = session.get(Offices, order.office_id)
+        office = await session.get(Offices, order.office_id)
         if office and office.build:
             building_name = office.build.name.upper()
             buildings[building_name].append(office.__repr__())
@@ -162,7 +166,6 @@ async def parse_hours_from_admin_message(message):
     """
     pattern = fr'{GET_LIST}_(?P<hour>\d+)$'
     hour_in_message = re.search(pattern, message.text)
-    # hour_in_message = int(message.replace(GET_LIST, ''))  # альтернатива
 
     if not hour_in_message:
         await message.answer('Некорректный формат при отправке команды.')
