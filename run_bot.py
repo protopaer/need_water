@@ -1,6 +1,7 @@
 import asyncio
 import os
 from typing import Optional
+from datetime import datetime
 
 from aiogram import Bot, Dispatcher
 from aiogram.filters import Command
@@ -17,7 +18,8 @@ from constants import FIRST_SECTION, GET_LIST, OUR_TIMEZONE, SECOND_SECTION
 from models import engine, TgAccounts, Order
 from keyboards import (create_all_offices_keyboard, confirm_keyboard,
                        remove_keyboard)
-from function import (check_office_exists, check_order_today, check_user_today,
+from function import (add_orgers_in_archive, check_office_exists,
+                      check_order_today, check_user_today,
                       collect_orders_for_interval, format_orders_message,
                       get_datetime_in_timezone_for_message,
                       get_slot_order, parse_hours_from_admin_message,
@@ -64,17 +66,28 @@ async def send_interval_message(bot: Bot, hour: int) -> None:
     Отправляет сообщения администраторам для указанного интервала.
     """
     async with AsyncSessionLocal() as session:
-        try:
-            # Получаем данные о заказах для указанного интервала
-            orders = await collect_orders_for_interval(session, hour)
-            message_text = format_orders_message(hour, orders)
+        today = datetime.now().isoweekday()  # Находит день недели для сегодня.
+        if today < 6 and hour < SECOND_SECTION:
+            try:
+                # Получаем данные о заказах для указанного интервала
+                orders = await collect_orders_for_interval(session, hour)
+                message_text = format_orders_message(hour, orders)
 
-            # Отправляем сообщения администраторам
-            admins_id = list(map(int, os.getenv('admin_id').split(',')))
-            for admin_id in admins_id:
-                await bot.send_message(admin_id, message_text)
-        except Exception as e:
-            print(f'Ошибка в send_interval_message для интервала {hour}: {e}')
+                # Отправляем сообщения администраторам:
+                admins_id = list(map(int, os.getenv('admin_id').split(',')))
+                for admin_id in admins_id:
+                    await bot.send_message(admin_id, message_text)
+
+                # Чистим базу (проставляем статус - в архиве):
+                await add_orgers_in_archive(session, hour)
+
+            except Exception as e:
+                print(
+                    f'Ошибка в send_interval_message для интервала {hour}: {e}'
+                )
+                await session.rollback()
+        # TODO может быть здесь надо проставить сценарий для вечера пятницы
+        # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 
 async def scheduled_message(bot: Bot):
@@ -123,7 +136,7 @@ async def command_start_handler(
     """
     async with AsyncSessionLocal() as session:
         # Проверяем авторизацию пользователя
-        keyboard = create_all_offices_keyboard(message, session)
+        keyboard = await create_all_offices_keyboard(message, session)
 
         if keyboard:
             # Если пользователь авторизован, показываем кнопки
@@ -162,7 +175,7 @@ async def process_code(message: Message, state: FSMContext) -> None:
             )
             await session.commit()
 
-        keyboard = create_all_offices_keyboard(message, session)
+        keyboard = await create_all_offices_keyboard(message, session)
 
         # Сбрасываем состояние
         await state.clear()
@@ -229,7 +242,7 @@ async def process_confirm_callback(callback_query: CallbackQuery) -> None:
             return
 
         # Создаем новую «заявку на воду» в таблице Order:
-        session.execute(
+        await session.execute(
             insert(Order).values(
                 office_id=office_id,
                 tg_account_id=tg_account_id,

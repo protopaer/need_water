@@ -4,28 +4,30 @@ from sqlalchemy import select
 from models import Offices, TgAccounts
 
 
-def check_authorization(message, session) -> bool:
+async def check_authorization(message, session) -> bool:
     """Проверяет, авторизован ли Пользователь."""
     tg_account = str(message.chat.id)  # Аккаунт из запроса
 
     # Проверяем, есть ли запись в таблице TgAccounts
-    check_authorization = session.execute(
+    result = await session.execute(
         select(TgAccounts).where(
             TgAccounts.account == tg_account,
             TgAccounts.blocked == False
         )
-    ).scalars().first()
+    )
+    check_authorization = result.scalars().first()
 
     # Возвращаем True, если пользователь авторизован, иначе False
     return bool(check_authorization)
 
 
-def create_all_offices_keyboard(message, session):
+async def create_all_offices_keyboard(message, session):
     """Создание клавиатуры для подачи заявки (возвращает список кабинетов)."""
     # TODO: подумать, надо ли создавать сессию внутри функции?
-    if check_authorization(message, session):
+    if await check_authorization(message, session):
         # Получаем список всех кабинетов (может это должно быть вне)
-        office_list = session.query(Offices).all()
+        result = await session.execute(select(Offices))
+        office_list = result.scalars().all()
 
         office_stack_buttons = []  # Заготовка для кнопок с кабинетами
         for office in office_list:

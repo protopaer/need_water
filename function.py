@@ -6,7 +6,7 @@ from typing import Optional
 from zoneinfo import ZoneInfo
 
 from aiogram.types import CallbackQuery
-from sqlalchemy import and_, select
+from sqlalchemy import and_, select, update
 from sqlalchemy.orm import selectinload
 
 from constants import GET_LIST, FIRST_SECTION, OUR_TIMEZONE, SECOND_SECTION
@@ -177,3 +177,20 @@ async def parse_hours_from_admin_message(message):
         await message.answer(f'Где вы видели {hour_find} час.')
         return False
     return hour_find
+
+
+async def add_orgers_in_archive(session, hour):
+    """
+    Проставляет статус В АРХИВЕ заявкам после отправки сообщения админам.
+    """
+    await session.execute(
+        update(Order).where(
+            and_(
+                Order.order_time < time(hour, 0),
+                Order.in_archive == False
+            )
+        ).values(in_archive=True)
+    )
+
+    # Сохраняем изменения в базе данных
+    await session.commit()
