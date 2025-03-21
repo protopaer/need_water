@@ -1,3 +1,4 @@
+import aiohttp
 import asyncio
 import os
 from typing import Optional
@@ -14,7 +15,8 @@ from sqlalchemy import insert
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from constants import FIRST_SECTION, GET_LIST, OUR_TIMEZONE, SECOND_SECTION
+from constants import (FIRST_SECTION, GET_LIST, OUR_TIMEZONE, SECOND_SECTION,
+                       URL_TG_CODE, API_PHONEBOOK_AWAIT)
 from models import engine, TgAccounts, Order
 from keyboards import (create_all_offices_keyboard, confirm_keyboard,
                        remove_keyboard)
@@ -23,7 +25,7 @@ from function import (add_orgers_in_archive, check_office_exists,
                       collect_orders_for_interval, format_orders_message,
                       get_datetime_in_timezone_for_message,
                       get_slot_order, parse_hours_from_admin_message,
-                      return_office, string_generate)
+                      return_office)
 
 
 # Инициализация бота и диспетчера:
@@ -67,7 +69,7 @@ async def send_interval_message(bot: Bot, hour: int) -> None:
     """
     async with AsyncSessionLocal() as session:
         today = datetime.now().isoweekday()  # Находит день недели для сегодня.
-        if today < 6 and hour < SECOND_SECTION:
+        if today < 6 and hour < SECOND_SECTION + 1:  # костыль с 1
             try:
                 # Получаем данные о заказах для указанного интервала
                 orders = await collect_orders_for_interval(session, hour)
@@ -77,6 +79,7 @@ async def send_interval_message(bot: Bot, hour: int) -> None:
                 admins_id = list(map(int, os.getenv('admin_id').split(',')))
                 for admin_id in admins_id:
                     await bot.send_message(admin_id, message_text)
+                    print(f'Отправка выполнена {admin_id}')
 
                 # Чистим базу (проставляем статус - в архиве):
                 await add_orgers_in_archive(session, hour)
@@ -145,23 +148,39 @@ async def command_start_handler(
                 reply_markup=keyboard
             )
         else:
-            # Генерируем случайный код и сохраняем его в состоянии
-            code = string_generate()  # рандом-код
-            await state.update_data(code=code)
-            await message.answer(
-                f'(Заглушка) Укажите код в справочнике: {code}'
-            )
-            await state.set_state(RegistrationStates.waiting_for_code)
+            try:
+                # Запрашиваем код через API
+                # (выполняется POST запрос в справочник):
+                async with aiohttp.ClientSession() as http_session:
+                    async with http_session.post(
+                        URL_TG_CODE, timeout=API_PHONEBOOK_AWAIT
+                    ) as response:
+                        if response.status == 201:
+                            data = await response.json()  # данные
+                            code = str(data.get('number'))  # код
+                            print(code)
+                            # Сохраняем код в состоянии
+                            await state.update_data(code=code)
+                            await message.answer('Введите код из системы:')
+                            await state.set_state(
+                                RegistrationStates.waiting_for_code
+                            )
+
+                        else:
+                            await message.answer('Ошибка получения кода')
+
+            except aiohttp.ClientError as e:
+                await message.answer(f'Ошибка подключения: {e}')
 
 
 @dp.message(RegistrationStates.waiting_for_code)
 async def process_code(message: Message, state: FSMContext) -> None:
     """
-    (Заглушка) Обработчик ввода кода авторизации.
+    Обработчик ввода кода авторизации.
     """
     user_code = message.text  # Код, введенный пользователем
-    data = await state.get_data()  # Получаем сохраненный код из состояния
-    generated_code = str(data.get('code'))  # Преобразуем в строку
+    data = await state.get_data()
+    generated_code = str(data.get('code'))  # Получаем код из состояния
 
     if user_code == generated_code:
         # Если код верный, добавляем запись в таблицу TgAccounts
@@ -174,17 +193,18 @@ async def process_code(message: Message, state: FSMContext) -> None:
                 )
             )
             await session.commit()
+            await message.answer('Вот и вся регистрация!')
 
-        keyboard = await create_all_offices_keyboard(message, session)
+            keyboard = await create_all_offices_keyboard(message, session)
 
-        # Сбрасываем состояние
-        await state.clear()
-        await message.answer(
-                'Выберите Ваш кабинет:',
-                reply_markup=keyboard
-            )
+            # Сбрасываем состояние
+            await state.clear()
+            await message.answer(
+                    'Выберите Ваш кабинет:',
+                    reply_markup=keyboard
+                )
     else:
-        await message.answer('Неверный код.')
+        await message.answer('❌ Неверный код.')
 
 
 @dp.callback_query(lambda c: c.data.startswith('button'))
@@ -192,7 +212,7 @@ async def process_callback_button(callback_query: CallbackQuery) -> None:
     """
     Обработчик нажатия на кнопку кабинета.
 
-    Появляется, когда авторизованный пользователь нажан на кнопку кабинета.
+    Появляется, когда авторизованный пользователь нажал на кнопку кабинета.
     """
     office_id = int(callback_query.data.replace('button', ''))  # ID кабинета
 
@@ -242,23 +262,27 @@ async def process_confirm_callback(callback_query: CallbackQuery) -> None:
             return
 
         # Создаем новую «заявку на воду» в таблице Order:
-        await session.execute(
-            insert(Order).values(
+        result = await session.execute(
+            insert(Order)
+            .values(
                 office_id=office_id,
                 tg_account_id=tg_account_id,
                 order_date=localized_time.date(),
                 order_time=localized_time.time(),
                 in_archive=False
             )
+            .returning(Order.id)
         )
+        new_order_id = result.scalar()
         await session.commit()
 
-        order_in_time = get_slot_order(localized_time)
+        order_in_time = get_slot_order(localized_time)  # Ближайшая доставка.
 
         # Отправляем подтверждение пользователю
         await callback_query.message.answer(
-            f'Заказ воды для {office.abbr} создан.\n'
-            f'Вода можна пить прям точна {order_in_time}!\n'
+            f'✅ Заказ воды №{new_order_id} создан.\n\n'
+            f'Место: {office.abbr}\n'
+            f'Доставка: {order_in_time}!\n\n'
             'Ожидайте…'
         )
 
@@ -269,7 +293,7 @@ async def process_cancel_callback(callback_query: CallbackQuery) -> None:
     Обработчик отмены выбора кабинета.
     """
     await remove_keyboard(callback_query.message)
-    await callback_query.message.answer('Выбор кабинета отменен.')
+    await callback_query.message.answer('❌ Выбор кабинета отменен.')
 
 
 @dp.message(lambda message: message.text.startswith(f'{GET_LIST}_'))

@@ -1,5 +1,7 @@
-from sqlalchemy import (Column, Integer, String, Boolean, create_engine,
-                        ForeignKey, Date, Time)
+from sqlalchemy import (
+    Column, Integer, String, Boolean, ForeignKey, Date, Time,
+    # create_engine
+)
 from sqlalchemy.orm import (declared_attr, declarative_base, relationship)
 # from sqlalchemy.orm import Session
 from sqlalchemy.ext.asyncio import create_async_engine

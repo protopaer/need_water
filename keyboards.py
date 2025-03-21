@@ -29,15 +29,26 @@ async def create_all_offices_keyboard(message, session):
         result = await session.execute(select(Offices))
         office_list = result.scalars().all()
 
-        office_stack_buttons = []  # Заготовка для кнопок с кабинетами
+        rows = []
+        current_row = []
         for office in office_list:
-            office_stack_buttons.append(
-                InlineKeyboardButton(
-                    text=office.abbr,
-                    callback_data=f'button{office.id}'
-                )
+            # Создаем кнопку
+            button = InlineKeyboardButton(
+                text=office.abbr,
+                callback_data=f'button{office.id}'
             )
-        return InlineKeyboardMarkup(inline_keyboard=[office_stack_buttons])
+            current_row.append(button)
+            
+            # Когда набирается 3 кнопки в ряду, добавляем его
+            if len(current_row) == 3:
+                rows.append(current_row)
+                current_row = []
+        
+        # Добавляем оставшиеся кнопки (если есть)
+        if current_row:
+            rows.append(current_row)
+
+        return InlineKeyboardMarkup(inline_keyboard=rows)
 
     return None
 
@@ -47,11 +58,11 @@ def confirm_keyboard(office_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [
             InlineKeyboardButton(
-                text="Верно!",
+                text="✅ Верно!",
                 callback_data=f"confirm_{office_id}"
             ),
             InlineKeyboardButton(
-                text="Мимо)",
+                text="❌ Мимо)",
                 callback_data="cancel"
             )
         ]

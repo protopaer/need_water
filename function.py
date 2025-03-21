@@ -13,11 +13,6 @@ from constants import GET_LIST, FIRST_SECTION, OUR_TIMEZONE, SECOND_SECTION
 from models import Offices, Order
 
 
-def string_generate():
-    """Генерирует случайное число в телефонном справочнике."""
-    return randint(0, 9)
-
-
 def get_datetime_in_timezone_for_message(message_callback):
     """
     Получаем дататайм сообщения с учетом часового пояса.
@@ -93,7 +88,7 @@ async def check_order_today(session, office, callback_query):
 
     if existing_order:  # Если заявка уже существует, отправляем сообщение
         await callback_query.message.answer(
-            'Отказано!\n'
+            '❌ Отказано!\n'
             f'Заявка для кабинета {office.abbr} на сегодня уже есть.'
         )
         return True
@@ -120,7 +115,7 @@ async def check_user_today(session, tg_account_id, callback_query):
 
     if existing_user_order:  # Если заявка уже существует
         await callback_query.message.answer(
-            'Отказано!\nВы можете подать только одну заявку в день!'
+            '❌ Отказано!\nВы можете подать только одну заявку в день!'
         )
         return True
     return False
@@ -156,7 +151,7 @@ async def collect_orders_for_interval(session, hour_find) -> Optional[list]:
     for building, offices in sorted(buildings.items()):
         formatted_orders.append(('-' * 41) + '\n' + f'Здание: {building}')
         for office in offices:
-            formatted_orders.append(f' - {office}')
+            formatted_orders.append(f'🫙 {office}')
     return formatted_orders
 
 
@@ -168,13 +163,13 @@ async def parse_hours_from_admin_message(message):
     hour_in_message = re.search(pattern, message.text)
 
     if not hour_in_message:
-        await message.answer('Некорректный формат при отправке команды.')
+        await message.answer('❌ Некорректный формат при отправке команды.')
         return False
 
     hour_find = int(hour_in_message.group('hour'))
 
     if hour_find not in range(0, 25):
-        await message.answer(f'Где вы видели {hour_find} час.')
+        await message.answer(f'❌ Где вы видели {hour_find} час.')
         return False
     return hour_find
 
