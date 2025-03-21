@@ -68,4 +68,4 @@ engine = create_async_engine(DATABASE_URL, echo=False)
 
 
 # # Когда нужно создать модели - раскомментируй
-# Base.metadata.create_all(engine)
+Base.metadata.create_all(engine)

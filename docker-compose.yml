@@ -1,0 +1,13 @@
+version: '3'
+
+services:
+  app:
+    build: .
+    volumes:
+      - sqlite_data:/app  # Монтируем том для SQLite
+    # environment:
+    #   - SQLITE_DB_PATH=/app/data/water.db  # Путь к SQLite-файлу
+    restart: unless-stopped
+
+volumes:
+  sqlite_data:  # Создаем том для SQLite

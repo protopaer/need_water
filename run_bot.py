@@ -16,7 +16,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from constants import (FIRST_SECTION, GET_LIST, OUR_TIMEZONE, SECOND_SECTION,
-                       URL_TG_CODE, API_PHONEBOOK_AWAIT)
+                       API_PHONEBOOK_AWAIT)
 from models import engine, TgAccounts, Order
 from keyboards import (create_all_offices_keyboard, confirm_keyboard,
                        remove_keyboard)
@@ -148,12 +148,13 @@ async def command_start_handler(
                 reply_markup=keyboard
             )
         else:
+            url_tg_code = os.getenv('url_tg_code')
             try:
                 # Запрашиваем код через API
                 # (выполняется POST запрос в справочник):
                 async with aiohttp.ClientSession() as http_session:
                     async with http_session.post(
-                        URL_TG_CODE, timeout=API_PHONEBOOK_AWAIT
+                        url_tg_code, timeout=API_PHONEBOOK_AWAIT
                     ) as response:
                         if response.status == 201:
                             data = await response.json()  # данные

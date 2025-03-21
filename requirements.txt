@@ -19,5 +19,11 @@ python-dotenv==1.0.1
 SQLAlchemy==2.0.39
 typing_extensions==4.12.2
 yarl==1.18.3
+aiosqlite==0.21.0  # работа с асинхронной sqlite
+APScheduler==3.11.0  # функции по расписанию
+greenlet==3.1.1  # работа с корутинами
+pip==25.0.1
+setuptools==58.1.0  # сборка и управление питон-пакетами
+tzlocal==5.3.1  # локальный часовой пояс
 
 # apscheduler python-dateutil а я установил полностью пакет
