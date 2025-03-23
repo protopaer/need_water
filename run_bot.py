@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from constants import (FIRST_SECTION, GET_LIST, OUR_TIMEZONE, SECOND_SECTION,
                        API_PHONEBOOK_AWAIT)
-from models import engine, TgAccounts, Order
+from models import Base, TgAccounts, Order, engine
 from keyboards import (create_all_offices_keyboard, confirm_keyboard,
                        remove_keyboard)
 from function import (add_orgers_in_archive, check_office_exists,
@@ -300,7 +300,7 @@ async def process_cancel_callback(callback_query: CallbackQuery) -> None:
 @dp.message(lambda message: message.text.startswith(f'{GET_LIST}_'))
 async def list_orders_handler(message: Message) -> None:
     """
-    Обработка команды админа направить список заявок до указанного часа.
+    Обработка команды админа вручную направить список заявок ко времени.
     """
     async with AsyncSessionLocal() as session:
 
@@ -316,6 +316,11 @@ async def list_orders_handler(message: Message) -> None:
 
 # Run the bot
 async def main() -> None:
+
+    # Создаём таблицы, если они ещё не существуют
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
     bot = Bot(token=TOKEN)
     await on_startup(bot)
     await dp.start_polling(bot)
