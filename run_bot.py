@@ -8,7 +8,6 @@ from typing import Optional
 from aiogram import Bot
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
-from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import Message, CallbackQuery
 from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy import insert
@@ -23,11 +22,12 @@ from function import (add_orgers_in_archive, check_office_exists,
                       get_datetime_in_timezone_for_message,
                       get_slot_order,
                       return_office)
-from keyboards import (create_all_offices_keyboard, confirm_keyboard,
-                       remove_keyboard)
+from keyboards import (create_all_builds_keyboard, create_all_offices_keyboard,
+                       confirm_keyboard, remove_keyboard)
 from models import TgAccounts, Order, Base
 from config import AsyncSessionLocal, dp, engine, scheduler
 from admins.admins_action import url_for_add_office, url_for_get_list
+from users.users_fcm import RegistrationStates
 
 
 async def on_startup(bot: Bot):
@@ -63,7 +63,9 @@ async def send_interval_message(bot: Bot, hour: int) -> None:
                 message_text = format_orders_message(hour, orders)
 
                 # Отправляем сообщения администраторам:
-                admins_id = list(map(int, os.getenv('admin_id').split(',')))
+                admins_id = list(
+                    map(int, str(os.getenv('admin_id')).split(','))
+                )
                 for admin_id in admins_id:
                     await bot.send_message(admin_id, message_text)
                     logging.info(
@@ -105,7 +107,9 @@ async def scheduled_message(bot: Bot):
             )
 
             # Получаем список администраторов:
-            admins_id = list(map(int, os.getenv('admin_id').split(',')))
+            admins_id = list(
+                map(int, str(os.getenv('admin_id')).split(','))
+                )
             for admin_id in admins_id:
                 try:
                     await bot.send_message(admin_id, message_text1)
@@ -127,16 +131,16 @@ async def command_start_handler(
     """
     async with AsyncSessionLocal() as session:
         # Проверяем авторизацию пользователя
-        keyboard = await create_all_offices_keyboard(message, session)
+        keyboard = await create_all_builds_keyboard(session, message=message)
 
         if keyboard:
             # Если пользователь авторизован, показываем кнопки
             await message.answer(
-                "Выберите кабинет:",
+                'Выберите здание:',
                 reply_markup=keyboard
             )
         else:
-            url_tg_code = os.getenv('url_tg_code')
+            url_tg_code = str(os.getenv('url_tg_code'))
             try:
                 # Запрашиваем код через API
                 # (выполняется POST запрос в справочник):
@@ -171,9 +175,31 @@ async def command_start_handler(
                 logging.error(f'Ошибка в {__name__} - {e}')
 
 
-# Состояния для FSM
-class RegistrationStates(StatesGroup):
-    waiting_for_code = State()  # Состояние ожидания ввода кода
+@dp.callback_query(lambda c: c.data.startswith('building_'))
+async def process_building_selection(
+    callback_query: CallbackQuery, state: FSMContext
+):
+    """Обработка выбора здания"""
+    build_id = int(str(callback_query.data).split('_')[1])  # <-- непонятная 1
+
+    async with AsyncSessionLocal() as session:
+        keyboard = await create_all_offices_keyboard(session, build_id)
+        await callback_query.message.edit_text(
+            'Выберите кабинет:',
+            reply_markup=keyboard
+        )
+    await state.update_data(selected_build_id=build_id)
+
+
+@dp.callback_query(lambda c: c.data == 'back_to_builds')
+async def process_back_to_builds(callback_query: CallbackQuery):
+    """Обработка возврата к списку зданий"""
+    async with AsyncSessionLocal() as session:
+        keyboard = await create_all_builds_keyboard(session)
+        await callback_query.message.edit_text(
+            'Выберите здание:',
+            reply_markup=keyboard
+        )
 
 
 @dp.message(RegistrationStates.waiting_for_code)
@@ -203,12 +229,14 @@ async def process_code(message: Message, state: FSMContext) -> None:
                 f'{user_in_chat} успешно авторизовался и сохранен в базе'
             )
 
-            keyboard = await create_all_offices_keyboard(message, session)
+            keyboard = await create_all_builds_keyboard(
+                session, message=message
+            )
 
             # Сбрасываем состояние
             await state.clear()
             await message.answer(
-                    'Выберите Ваш кабинет:',
+                    'Выберите здание:',
                     reply_markup=keyboard
                 )
     else:
@@ -223,7 +251,7 @@ async def process_callback_button(callback_query: CallbackQuery) -> None:
 
     Появляется, когда авторизованный пользователь нажал на кнопку кабинета.
     """
-    office_id = int(callback_query.data.replace('button', ''))  # ID кабинета
+    office_id = int(str(callback_query.data).replace('button', ''))  # ID кабинета
 
     user_in_chat = create_user_attrs(callback_query)
 
@@ -238,7 +266,7 @@ async def process_callback_button(callback_query: CallbackQuery) -> None:
 
         # Если найден - отправляем запрос на подтверждение:
         await callback_query.message.answer(
-            f'Выбран кабинет {office.abbr}. Всё верно?',
+            f'Выбран кабинет {str(office.abbr)}. Всё верно?',
             reply_markup=confirm_keyboard(office_id)
         )
         # TODO надо добавить логгирование нажатия на кнопку кабинета
@@ -250,7 +278,7 @@ async def process_confirm_callback(callback_query: CallbackQuery) -> None:
     """
     Обработчик подтверждения выбора кабинета.
     """
-    office_id = int(callback_query.data.replace('confirm_', ''))  # ID кабинета
+    office_id = int(str(callback_query.data).replace('confirm_', ''))  # ID кабинета
     tg_account_id = callback_query.from_user.id  # ID пользователя
     user_in_chat = create_user_attrs(callback_query)
 
@@ -316,9 +344,12 @@ async def process_cancel_callback(callback_query: CallbackQuery) -> None:
     logging.info(f'{user_in_chat} отменил выбор кабинета.')
 
 
-async def setup_bot(token: Optional[str]) -> Bot:
+async def setup_bot(token: str) -> Bot:
     # Инициализация бота, диспетчера и роутеров:
-    bot = Bot(token=token)
+    bot = Bot(
+        token=token,
+        can_edit_messages=True
+    )
 
     # Добавляем роутеры:
     url_for_get_list
@@ -337,7 +368,7 @@ async def main() -> None:
         await conn.run_sync(Base.metadata.create_all)
         logging.info('Движок создан, база подключена')
 
-    token = os.getenv('bot_token')
+    token = str(os.getenv('bot_token'))
     bot = await setup_bot(token)
     await on_startup(bot)
     await dp.start_polling(bot)

@@ -52,7 +52,7 @@ def create_user_attrs(obj):
     return f'{chat.id} ({chat.first_name} {chat.full_name})'
 
 
-async def return_office(session, office_id) -> Optional[Offices]:
+async def return_office(session, office_id) -> Offices:
     """Получив office_id - возвращает экземпляр Кабинета."""
     result = await session.execute(
         select(Offices).where(Offices.id == office_id)
