@@ -54,7 +54,7 @@ async def create_all_builds_keyboard(
         buttons.append([
             InlineKeyboardButton(
                 text=f'⭐ {favorite_office.abbr} ⭐',
-                callback_data=f'button{favorite_office.build.id}'
+                callback_data=f'button{favorite_office.id}'
             )
         ])
 

@@ -136,7 +136,7 @@ async def command_start_handler(
         if keyboard:
             # Если пользователь авторизован, показываем кнопки
             await message.answer(
-                'Выберите здание:',
+                'Повторить ⭐ заказ или начнём с выбора здания:',
                 reply_markup=keyboard
             )
         else:
