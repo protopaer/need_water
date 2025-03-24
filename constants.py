@@ -8,6 +8,7 @@ OUR_TIMEZONE = 'Asia/Yekaterinburg'
 
 GET_LIST = '/get_list'
 ADD_OFFICE = 'add_office'
+ADD_BUILD = 'add_build'
 
 API_PHONEBOOK_AWAIT = 10
 
@@ -21,3 +22,5 @@ ABBR_OFFICE_COUNT = 10
 NAME_OFFICE_COUNT = 40
 NAME_BUILD_COUNT = 40
 TG_ACCOUNT_LEN = 20
+
+OFFICE_IN_LINE = 3

@@ -1,6 +1,7 @@
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
-from sqlalchemy import select
+from sqlalchemy import select, func
 
+from constants import OFFICE_IN_LINE
 from models import Offices, TgAccounts, Builds
 
 
@@ -26,7 +27,12 @@ async def create_all_offices_keyboard(message, session):
     # TODO: подумать, надо ли создавать сессию внутри функции?
     if await check_authorization(message, session):
         # Получаем список всех кабинетов (может это должно быть вне)
-        result = await session.execute(select(Offices))
+        result = await session.execute(
+            select(Offices)
+            .order_by(
+                func.lower(Offices.abbr)
+            )
+        )
         office_list = result.scalars().all()
 
         rows = []
@@ -40,7 +46,7 @@ async def create_all_offices_keyboard(message, session):
             current_row.append(button)
             
             # Когда набирается 3 кнопки в ряду, добавляем его
-            if len(current_row) == 3:
+            if len(current_row) == OFFICE_IN_LINE:
                 rows.append(current_row)
                 current_row = []
         

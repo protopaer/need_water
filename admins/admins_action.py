@@ -5,10 +5,10 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, CallbackQuery
 
-from admins.admins_fcm import AddOfficeStates
+from admins.admins_fcm import AddOfficeStates, AddBuildStates
 from config import AsyncSessionLocal, dp
-from constants import (ABBR_OFFICE_COUNT, ADD_OFFICE, GET_LIST,
-                       NAME_OFFICE_COUNT)
+from constants import (ABBR_OFFICE_COUNT, ADD_BUILD, ADD_OFFICE, GET_LIST,
+                       NAME_OFFICE_COUNT, NAME_BUILD_COUNT)
 from function import (collect_orders_for_interval, format_orders_message,
                       parse_hours_from_admin_message)
 from keyboards import create_builds_keyboard
@@ -111,6 +111,39 @@ async def process_build_selection(
         f'Здание: {build_name}'
     )
     await state.clear()  # Очищаем состояние
+
+
+# -----------------------------------------------------------------------------
+
+
+# Обработчик команды /add_build
+@router_add_office.message(Command(f'{ADD_BUILD}'))
+async def command_add_build(message: Message, state: FSMContext) -> None:
+    await message.answer(
+        f'Введите название здания (до {NAME_BUILD_COUNT} символов):'
+    )
+    await state.set_state(AddBuildStates.waiting_for_name)
+
+
+# Обработчик ввода названия здания
+@router_add_office.message(AddBuildStates.waiting_for_name)
+async def process_build_name(message: Message, state: FSMContext) -> None:
+    if len(message.text) > NAME_BUILD_COUNT:
+        await message.answer(
+            f'Название слишком длинное! Максимум {NAME_BUILD_COUNT} символов.'
+        )
+        return
+
+    async with AsyncSessionLocal() as session:
+        # Создаем новое здание
+        new_build = Builds(name=message.text)
+        session.add(new_build)
+        await session.commit()
+
+    await message.answer(
+        f'✅ Здание «{message.text}» успешно добавлено!'
+    )
+    await state.clear()
 
 
 @router_get_list.message(
