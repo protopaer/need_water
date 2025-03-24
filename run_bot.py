@@ -197,7 +197,7 @@ async def process_back_to_builds(callback_query: CallbackQuery):
     async with AsyncSessionLocal() as session:
         keyboard = await create_all_builds_keyboard(session)
         await callback_query.message.edit_text(
-            'Выберите здание:',
+            'Теперь выберите здание:',
             reply_markup=keyboard
         )
 
