@@ -1,3 +1,4 @@
+import logging
 import re
 from collections import defaultdict
 from datetime import time
@@ -46,6 +47,12 @@ def format_orders_message(hour: int, orders: Optional[list]) -> str:
     return message
 
 
+def create_user_attrs(obj):
+    """Создание записи о пользователе вида «ID (name fullname)»."""
+    chat = obj.from_user if isinstance(obj, CallbackQuery) else obj.chat
+    return f'{chat.id} ({chat.first_name} {chat.full_name})'
+
+
 async def return_office(session, office_id) -> Optional[Offices]:
     """Получив office_id - возвращает экземпляр Кабинета."""
     result = await session.execute(
@@ -75,6 +82,7 @@ async def check_order_today(session, office, callback_query):
     # Получаем дату с учетом часового пояса
     localized_time = get_datetime_in_timezone_for_message(callback_query)
     today = localized_time.date()  # Извлекаем дату
+    chat_user_id = create_user_attrs(callback_query.message)
 
     result = await session.execute(
         select(Order).where(
@@ -91,6 +99,10 @@ async def check_order_today(session, office, callback_query):
             '❌ Отказано!\n'
             f'Заявка для кабинета {office.abbr} на сегодня уже есть.'
         )
+        logging.info(
+            f'{chat_user_id} пытался создать заявку для {office}'
+            ', а она уже есть'
+        )
         return True
     return False
 
@@ -102,6 +114,7 @@ async def check_user_today(session, tg_account_id, callback_query):
     # Получаем дату с учетом часового пояса
     localized_time = get_datetime_in_timezone_for_message(callback_query)
     today = localized_time.date()  # Извлекаем дату
+    chat_user_id = create_user_attrs(callback_query.message)
 
     result = await session.execute(
         select(Order).where(
@@ -117,6 +130,7 @@ async def check_user_today(session, tg_account_id, callback_query):
         await callback_query.message.answer(
             '❌ Отказано!\nВы можете подать только одну заявку в день!'
         )
+        logging.info(f'{chat_user_id} пытался подать еще одну заявку')
         return True
     return False
 
@@ -137,6 +151,7 @@ async def collect_orders_for_interval(session, hour_find) -> Optional[list]:
     orders = result.scalars().all()
 
     if not orders:
+        logging.info('Заявок пока нет')
         return None
 
     buildings = defaultdict(list)

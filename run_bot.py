@@ -1,8 +1,9 @@
 import aiohttp
 import asyncio
+import logging
 import os
-from typing import Optional
 from datetime import datetime
+from typing import Optional
 
 from aiogram import Bot, Dispatcher
 from aiogram.filters import Command
@@ -15,17 +16,19 @@ from sqlalchemy import insert
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bot_logging import configure_logging
 from constants import (FIRST_SECTION, GET_LIST, OUR_TIMEZONE, SECOND_SECTION,
                        API_PHONEBOOK_AWAIT)
-from models import Base, TgAccounts, Order, engine
-from keyboards import (create_all_offices_keyboard, confirm_keyboard,
-                       remove_keyboard)
 from function import (add_orgers_in_archive, check_office_exists,
                       check_order_today, check_user_today,
-                      collect_orders_for_interval, format_orders_message,
+                      collect_orders_for_interval, create_user_attrs,
+                      format_orders_message,
                       get_datetime_in_timezone_for_message,
                       get_slot_order, parse_hours_from_admin_message,
                       return_office)
+from keyboards import (create_all_offices_keyboard, confirm_keyboard,
+                       remove_keyboard)
+from models import Base, TgAccounts, Order, engine
 
 
 # Инициализация бота и диспетчера:
@@ -60,7 +63,7 @@ async def on_startup(bot: Bot):
         id='second_section'
     )
     scheduler.start()
-    print('Планировщик стартовал!')
+    logging.info('Планировщик стартовал!')
 
 
 async def send_interval_message(bot: Bot, hour: int) -> None:
@@ -69,7 +72,7 @@ async def send_interval_message(bot: Bot, hour: int) -> None:
     """
     async with AsyncSessionLocal() as session:
         today = datetime.now().isoweekday()  # Находит день недели для сегодня.
-        if today < 6 and hour < SECOND_SECTION + 1:  # костыль с 1
+        if today < 6 and hour < SECOND_SECTION + 1:  # костыль с 1!!!!!!!!!!!!!!!
             try:
                 # Получаем данные о заказах для указанного интервала
                 orders = await collect_orders_for_interval(session, hour)
@@ -79,16 +82,20 @@ async def send_interval_message(bot: Bot, hour: int) -> None:
                 admins_id = list(map(int, os.getenv('admin_id').split(',')))
                 for admin_id in admins_id:
                     await bot.send_message(admin_id, message_text)
-                    print(f'Отправка выполнена {admin_id}')
+                    logging.info(
+                        f'Отправка сообщения выполнена для админа: {admin_id}'
+                    )
 
                 # Чистим базу (проставляем статус - в архиве):
                 await add_orgers_in_archive(session, hour)
+                logging.info('Заявки переведены в архив')
 
             except Exception as e:
-                print(
+                logging.error(
                     f'Ошибка в send_interval_message для интервала {hour}: {e}'
                 )
                 await session.rollback()
+                logging.info('Сессия откатилась назад')
         # TODO может быть здесь надо проставить сценарий для вечера пятницы
         # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -118,11 +125,13 @@ async def scheduled_message(bot: Bot):
             for admin_id in admins_id:
                 try:
                     await bot.send_message(admin_id, message_text1)
+                    logging.info(f'Письма в {FIRST_SECTION} ушли')
                     await bot.send_message(admin_id, message_text2)
+                    logging.info(f'Письма в {SECOND_SECTION} ушли')
                 except Exception as e:
-                    print(f'Ошибка отправки: {e}')
+                    logging.error(f'Ошибка отправки: {e}')
         except Exception as e:
-            print(f'Ошибка в scheduled_message: {e}')
+            logging.error(f'Ошибка в scheduled_message: {e}')
 
 
 # Состояния для FSM
@@ -156,10 +165,15 @@ async def command_start_handler(
                     async with http_session.post(
                         url_tg_code, timeout=API_PHONEBOOK_AWAIT
                     ) as response:
+                        user_in_chat = create_user_attrs(message)
+                        logging.info(
+                            f'{user_in_chat} '
+                            'запросил обновление кода на сайте АТУ.'
+                        )
                         if response.status == 201:
                             data = await response.json()  # данные
                             code = str(data.get('number'))  # код
-                            print(code)
+                            logging.info(f'{user_in_chat} получил код {code}')
                             # Сохраняем код в состоянии
                             await state.update_data(code=code)
                             await message.answer('Введите код из системы:')
@@ -169,9 +183,13 @@ async def command_start_handler(
 
                         else:
                             await message.answer('Ошибка получения кода')
+                            logging.error(
+                                f'Ошибка получения кода для {user_in_chat}'
+                            )
 
             except aiohttp.ClientError as e:
                 await message.answer(f'Ошибка подключения: {e}')
+                logging.error(f'Ошибка в {__name__} - {e}')
 
 
 @dp.message(RegistrationStates.waiting_for_code)
@@ -182,6 +200,8 @@ async def process_code(message: Message, state: FSMContext) -> None:
     user_code = message.text  # Код, введенный пользователем
     data = await state.get_data()
     generated_code = str(data.get('code'))  # Получаем код из состояния
+
+    user_in_chat = create_user_attrs(message)
 
     if user_code == generated_code:
         # Если код верный, добавляем запись в таблицу TgAccounts
@@ -195,6 +215,9 @@ async def process_code(message: Message, state: FSMContext) -> None:
             )
             await session.commit()
             await message.answer('Вот и вся регистрация!')
+            logging.info(
+                f'{user_in_chat} успешно авторизовался и сохранен в базе'
+            )
 
             keyboard = await create_all_offices_keyboard(message, session)
 
@@ -206,6 +229,7 @@ async def process_code(message: Message, state: FSMContext) -> None:
                 )
     else:
         await message.answer('❌ Неверный код.')
+        logging.info(f'{user_in_chat} ввел неверный код')
 
 
 @dp.callback_query(lambda c: c.data.startswith('button'))
@@ -216,6 +240,8 @@ async def process_callback_button(callback_query: CallbackQuery) -> None:
     Появляется, когда авторизованный пользователь нажал на кнопку кабинета.
     """
     office_id = int(callback_query.data.replace('button', ''))  # ID кабинета
+
+    user_in_chat = create_user_attrs(callback_query)
 
     async with AsyncSessionLocal() as session:
         office = await return_office(session, office_id)
@@ -231,6 +257,8 @@ async def process_callback_button(callback_query: CallbackQuery) -> None:
             f'Выбран кабинет {office.abbr}. Всё верно?',
             reply_markup=confirm_keyboard(office_id)
         )
+        # TODO надо добавить логгирование нажатия на кнопку кабинета
+        logging.info(f'{user_in_chat} нажал кнопку кабинета {office}.')
 
 
 @dp.callback_query(lambda c: c.data.startswith('confirm_'))
@@ -240,6 +268,7 @@ async def process_confirm_callback(callback_query: CallbackQuery) -> None:
     """
     office_id = int(callback_query.data.replace('confirm_', ''))  # ID кабинета
     tg_account_id = callback_query.from_user.id  # ID пользователя
+    user_in_chat = create_user_attrs(callback_query)
 
     async with AsyncSessionLocal() as session:
         office = await return_office(session, office_id)
@@ -276,6 +305,9 @@ async def process_confirm_callback(callback_query: CallbackQuery) -> None:
         )
         new_order_id = result.scalar()
         await session.commit()
+        logging.info(
+            f'{user_in_chat} создал заявку {new_order_id} для {office}'
+        )
 
         order_in_time = get_slot_order(localized_time)  # Ближайшая доставка.
 
@@ -293,8 +325,11 @@ async def process_cancel_callback(callback_query: CallbackQuery) -> None:
     """
     Обработчик отмены выбора кабинета.
     """
+    user_in_chat = create_user_attrs(callback_query)
+
     await remove_keyboard(callback_query.message)
     await callback_query.message.answer('❌ Выбор кабинета отменен.')
+    logging.info(f'{user_in_chat} отменил выбор кабинета.')
 
 
 @dp.message(lambda message: message.text.startswith(f'{GET_LIST}_'))
@@ -312,14 +347,18 @@ async def list_orders_handler(message: Message) -> None:
         text_in_message = format_orders_message(hour_find, orders_list)
 
         await message.answer(text_in_message)
+        logging.info(f'Админ вручную запросил список заявок для {hour_find}')
 
 
 # Run the bot
 async def main() -> None:
 
+    configure_logging()  # Запускаем сконфигурированный логгер
+
     # Создаём таблицы, если они ещё не существуют
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        logging.info('Движок создан, база подключена')
 
     bot = Bot(token=TOKEN)
     await on_startup(bot)
