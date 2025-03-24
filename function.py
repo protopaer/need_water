@@ -2,7 +2,6 @@ import logging
 import re
 from collections import defaultdict
 from datetime import time
-from random import randint
 from typing import Optional
 from zoneinfo import ZoneInfo
 

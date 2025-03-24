@@ -1,7 +1,7 @@
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from sqlalchemy import select
 
-from models import Offices, TgAccounts
+from models import Offices, TgAccounts, Builds
 
 
 async def check_authorization(message, session) -> bool:
@@ -74,3 +74,19 @@ async def remove_keyboard(message) -> None:
     Удаляет клавиатуру из сообщения после нажатия Пользователем на кнопку.
     """
     await message.edit_reply_markup(reply_markup=None)
+
+
+async def create_builds_keyboard(session) -> InlineKeyboardMarkup:
+    """Создает inline клавиатуру со списком зданий."""
+    # Получаем список всех зданий из базы данных
+    result = await session.execute(select(Builds))
+    builds = result.scalars().all()
+
+    # Создаем кнопки для каждого здания
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(
+            text=build.name, callback_data=f"build_{build.id}"
+        )]
+        for build in builds
+    ])
+    return keyboard

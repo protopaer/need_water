@@ -5,45 +5,29 @@ import os
 from datetime import datetime
 from typing import Optional
 
-from aiogram import Bot, Dispatcher
+from aiogram import Bot
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import Message, CallbackQuery
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy import insert
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot_logging import configure_logging
-from constants import (FIRST_SECTION, GET_LIST, OUR_TIMEZONE, SECOND_SECTION,
+from constants import (FIRST_SECTION, OUR_TIMEZONE, SECOND_SECTION,
                        API_PHONEBOOK_AWAIT)
 from function import (add_orgers_in_archive, check_office_exists,
                       check_order_today, check_user_today,
                       collect_orders_for_interval, create_user_attrs,
                       format_orders_message,
                       get_datetime_in_timezone_for_message,
-                      get_slot_order, parse_hours_from_admin_message,
+                      get_slot_order,
                       return_office)
 from keyboards import (create_all_offices_keyboard, confirm_keyboard,
                        remove_keyboard)
-from models import Base, TgAccounts, Order, engine
-
-
-# Инициализация бота и диспетчера:
-TOKEN: Optional[str] = os.getenv('bot_token')
-dp = Dispatcher()
-
-# Планировщик
-scheduler = AsyncIOScheduler()
-
-# Фабрика асинхронных сессий
-AsyncSessionLocal = sessionmaker(
-    bind=engine,
-    class_=AsyncSession,
-    expire_on_commit=False,
-)
+from models import TgAccounts, Order, Base
+from config import AsyncSessionLocal, dp, engine, scheduler
+from admins.admins_action import url_for_add_office, url_for_get_list
 
 
 async def on_startup(bot: Bot):
@@ -134,12 +118,7 @@ async def scheduled_message(bot: Bot):
             logging.error(f'Ошибка в scheduled_message: {e}')
 
 
-# Состояния для FSM
-class RegistrationStates(StatesGroup):
-    waiting_for_code = State()  # Состояние ожидания ввода кода
-
-
-@dp.message(Command("start"))
+@dp.message(Command('start'))
 async def command_start_handler(
     message: Message, state: FSMContext
 ) -> None:
@@ -190,6 +169,11 @@ async def command_start_handler(
             except aiohttp.ClientError as e:
                 await message.answer(f'Ошибка подключения: {e}')
                 logging.error(f'Ошибка в {__name__} - {e}')
+
+
+# Состояния для FSM
+class RegistrationStates(StatesGroup):
+    waiting_for_code = State()  # Состояние ожидания ввода кода
 
 
 @dp.message(RegistrationStates.waiting_for_code)
@@ -332,22 +316,15 @@ async def process_cancel_callback(callback_query: CallbackQuery) -> None:
     logging.info(f'{user_in_chat} отменил выбор кабинета.')
 
 
-@dp.message(lambda message: message.text.startswith(f'{GET_LIST}_'))
-async def list_orders_handler(message: Message) -> None:
-    """
-    Обработка команды админа вручную направить список заявок ко времени.
-    """
-    async with AsyncSessionLocal() as session:
+async def setup_bot(token: Optional[str]) -> Bot:
+    # Инициализация бота, диспетчера и роутеров:
+    bot = Bot(token=token)
 
-        hour_find = await parse_hours_from_admin_message(message)
-        if not hour_find:
-            return
+    # Добавляем роутеры:
+    url_for_get_list
+    url_for_add_office
 
-        orders_list = await collect_orders_for_interval(session, hour_find)
-        text_in_message = format_orders_message(hour_find, orders_list)
-
-        await message.answer(text_in_message)
-        logging.info(f'Админ вручную запросил список заявок для {hour_find}')
+    return bot
 
 
 # Run the bot
@@ -360,7 +337,8 @@ async def main() -> None:
         await conn.run_sync(Base.metadata.create_all)
         logging.info('Движок создан, база подключена')
 
-    bot = Bot(token=TOKEN)
+    token = os.getenv('bot_token')
+    bot = await setup_bot(token)
     await on_startup(bot)
     await dp.start_polling(bot)
 
