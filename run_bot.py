@@ -3,14 +3,14 @@ import asyncio
 import logging
 import os
 from datetime import datetime
-from typing import Optional
+# from typing import Optional
 
 from aiogram import Bot
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, CallbackQuery
 from apscheduler.triggers.cron import CronTrigger
-from sqlalchemy import insert
+from sqlalchemy import insert, update
 
 from bot_logging import configure_logging
 from constants import (FIRST_SECTION, OUR_TIMEZONE, SECOND_SECTION,
@@ -316,7 +316,19 @@ async def process_confirm_callback(callback_query: CallbackQuery) -> None:
             .returning(Order.id)
         )
         new_order_id = result.scalar()
+
+        # Перезаписываем последний выбор пользователя:
+        await session.execute(
+            update(TgAccounts)
+            .values(
+                account=tg_account_id,
+                blocked=False,
+                last_office=office_id
+            )
+        )
+
         await session.commit()
+
         logging.info(
             f'{user_in_chat} создал заявку {new_order_id} для {office}'
         )

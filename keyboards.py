@@ -34,11 +34,29 @@ async def create_all_builds_keyboard(
     """
 
     message = kwargs.get('message')
+    # Создаем кнопки
+    buttons = []
 
     # Проблема здесь:
     if message:
         if not await check_authorization(session, message):
             return None
+
+    user_account = await session.execute(
+        select(TgAccounts)
+        .where(TgAccounts.account == str(message.chat.id))
+    )
+    user_account = user_account.scalar_one_or_none()
+    favorite_office = await session.get(Offices, user_account.last_office)
+
+    # Добавляем избранный кабинет (если есть) в клавиатуру:
+    if favorite_office:
+        buttons.append([
+            InlineKeyboardButton(
+                text=f'⭐ {favorite_office.abbr} ⭐',
+                callback_data=f'button{favorite_office.build.id}'
+            )
+        ])
 
     # Получаем список всех зданий:
     result = await session.execute(
@@ -49,14 +67,16 @@ async def create_all_builds_keyboard(
     )
     builds = result.scalars().all()
 
-    keyboard = [
+    # Добавляем все здания в клавиатуру:
+    buttons.extend([
         [InlineKeyboardButton(
-            text=build.name,
+            text=f'{build.name}',
             callback_data=f'building_{build.id}'
         )]
         for build in builds
-    ]
-    return InlineKeyboardMarkup(inline_keyboard=keyboard)
+    ])
+
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
 async def create_all_offices_keyboard(session: AsyncSession, build_id: int):
