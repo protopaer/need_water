@@ -1,8 +1,17 @@
-from sqlalchemy import (Column, Integer, String, Boolean, ForeignKey, Date,
+from sqlalchemy import (Column,
+                        Integer,
+                        String,
+                        Boolean,
+                        ForeignKey,
+                        Date,
                         Time)
-from sqlalchemy.orm import declared_attr, declarative_base, relationship
+from sqlalchemy.orm import (declared_attr,
+                            declarative_base,
+                            relationship)
 
-from constants import (ABBR_OFFICE_COUNT, NAME_OFFICE_COUNT, NAME_BUILD_COUNT,
+from constants import (ABBR_OFFICE_COUNT,
+                       NAME_OFFICE_COUNT,
+                       NAME_BUILD_COUNT,
                        TG_ACCOUNT_LEN)
 
 

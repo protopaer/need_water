@@ -7,9 +7,15 @@ from aiogram.types import Message, CallbackQuery
 
 from admins.admins_fcm import AddOfficeStates, AddBuildStates
 from config import AsyncSessionLocal, dp
-from constants import (ABBR_OFFICE_COUNT, ADD_BUILD, ADD_OFFICE, GET_LIST,
-                       NAME_OFFICE_COUNT, NAME_BUILD_COUNT)
-from function import (collect_orders_for_interval, format_orders_message,
+from constants import (ABBR_OFFICE_COUNT,
+                       ADD_BUILD,
+                       ADD_OFFICE,
+                       GET_LIST,
+                       NAME_OFFICE_COUNT,
+                       NAME_BUILD_COUNT)
+from function import (collect_orders_for_interval,
+                      get_id_from_callback_query,
+                      format_orders_message,
                       parse_hours_from_admin_message)
 from keyboards import create_builds_keyboard
 from models import Offices, Builds
@@ -66,6 +72,9 @@ async def process_name(message: Message, state: FSMContext) -> None:
 # Обработчик ввода номера кабинета
 @router_add_office.message(AddOfficeStates.waiting_for_office_number)
 async def process_office_number(message: Message, state: FSMContext) -> None:
+    """
+    Обработка указанного номера кабинета при создании Office.
+    """
     if not message.text.isdigit():
         await message.answer('Номер кабинета должен быть числом!')
         return
@@ -82,8 +91,10 @@ async def process_office_number(message: Message, state: FSMContext) -> None:
 async def process_build_selection(
     callback_query: CallbackQuery, state: FSMContext
 ) -> None:
-    """Обработка выбора здания."""
-    build_id = int(callback_query.data.replace('build_', ''))
+    """
+    Обработка выбора Build при создании Office.
+    """
+    build_id = get_id_from_callback_query(callback_query, 'build_')
     await state.update_data(build_id=build_id)
 
     # Получаем данные из состояния

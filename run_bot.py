@@ -25,7 +25,7 @@ from function import (add_orgers_in_archive,
                       format_orders_message,
                       generate_code_for_registration_and_waiting_answer,
                       get_datetime_in_timezone_for_message,
-                      get_office_id_from_callback_query,
+                      get_id_from_callback_query,
                       get_slot_order,
                       return_office)
 from keyboards import (create_all_builds_keyboard,
@@ -210,7 +210,8 @@ async def process_building_selection(
     """
     Обработка выбора Здания Пользователем.
     """
-    build_id = int(str(callback_query.data).split('_')[1])  # <-- непонятная 1
+    # разделить данные и забрать всё что справа:
+    build_id = int(str(callback_query.data).split('_')[-1])
 
     async with AsyncSessionLocal() as session:
         keyboard = await create_all_offices_keyboard(session, build_id)
@@ -242,7 +243,7 @@ async def process_callback_button(callback_query: CallbackQuery) -> None:
     Появляется, когда авторизованный пользователь нажал на кнопку кабинета.
     """
     # office_id = int(str(callback_query.data).replace('button', ''))
-    office_id = get_office_id_from_callback_query(callback_query, 'button')
+    office_id = get_id_from_callback_query(callback_query, 'button')
 
     user_in_chat = create_user_attrs(callback_query)
 
@@ -260,7 +261,6 @@ async def process_callback_button(callback_query: CallbackQuery) -> None:
             f'Выбран кабинет {str(office.abbr)}. Всё верно?',
             reply_markup=confirm_keyboard(office_id)
         )
-        # TODO надо добавить логгирование нажатия на кнопку кабинета
         logging.info(f'{user_in_chat} нажал кнопку кабинета {office}.')
 
 
@@ -270,7 +270,7 @@ async def process_confirm_callback(callback_query: CallbackQuery) -> None:
     Обработчик подтверждения выбора кабинета.
     """
     # office_id = int(str(callback_query.data).replace('confirm_', ''))
-    office_id = get_office_id_from_callback_query(callback_query, 'confirm_')
+    office_id = get_id_from_callback_query(callback_query, 'confirm_')
     tg_account_id = callback_query.from_user.id  # ID пользователя
     user_in_chat = create_user_attrs(callback_query)
 

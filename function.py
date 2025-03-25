@@ -11,7 +11,11 @@ from aiogram.types import CallbackQuery, Message
 from sqlalchemy import and_, select, update
 from sqlalchemy.orm import selectinload
 
-from constants import API_PHONEBOOK_AWAIT, GET_LIST, FIRST_SECTION, OUR_TIMEZONE, SECOND_SECTION
+from constants import (API_PHONEBOOK_AWAIT,
+                       GET_LIST,
+                       FIRST_SECTION,
+                       OUR_TIMEZONE,
+                       SECOND_SECTION)
 from models import Offices, Order
 from users.users_fcm import RegistrationStates
 
@@ -55,7 +59,7 @@ def create_user_attrs(obj) -> str:
     return f'{chat.id} ({chat.first_name} {chat.full_name})'
 
 
-def get_office_id_from_callback_query(callback_query, part: str) -> int:
+def get_id_from_callback_query(callback_query, part: str) -> int:
     """
     Возвращает id кабинета из callback запроса.
     """
@@ -118,7 +122,7 @@ async def check_order_today(session, office, callback_query):
     """
     Проверяем, есть ли уже заявка в выбранный кабинет на сегодня.
     """
-    # Получаем дату с учетом часового пояса
+    # Получаем дату с учетом часового пояса:
     localized_time = get_datetime_in_timezone_for_message(callback_query)
     today = localized_time.date()  # Извлекаем дату
     chat_user_id = create_user_attrs(callback_query.message)
