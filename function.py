@@ -1,6 +1,7 @@
 import logging
+import os
 import re
-from aiohttp import ClientSession
+from aiohttp import ClientSession, ClientError
 from collections import defaultdict
 from datetime import time
 from typing import Optional
@@ -95,6 +96,21 @@ async def generate_code_for_registration_and_waiting_answer(
             else:
                 await message.answer('Ошибка получения кода')
                 logging.error(f'Ошибка получения кода для {user_in_chat}')
+
+
+async def start_registration(message: Message, state: FSMContext,):
+    url_tg_code = str(os.getenv('url_tg_code'))
+    try:
+        # Запрашиваем код через API (выполняется POST запрос в справочник):
+        await generate_code_for_registration_and_waiting_answer(
+            message=message,
+            state=state,
+            external_resource_url=url_tg_code
+        )
+
+    except ClientError as e:
+        await message.answer(f'Ошибка подключения: {e}')
+        logging.error(f'Ошибка в {__name__} - {e}')
 
 
 async def return_office(session, office_id) -> Offices:

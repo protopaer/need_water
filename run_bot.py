@@ -1,4 +1,3 @@
-import aiohttp
 import asyncio
 import logging
 import os
@@ -23,14 +22,13 @@ from function import (add_orgers_in_archive,
                       collect_orders_for_interval,
                       create_user_attrs,
                       format_orders_message,
-                      generate_code_for_registration_and_waiting_answer,
                       get_datetime_in_timezone_for_message,
                       get_id_from_callback_query,
                       get_slot_order,
-                      return_office)
+                      return_office, start_registration)
 from keyboards import (create_all_builds_keyboard,
                        create_all_offices_keyboard,
-                       confirm_keyboard, remove_keyboard)
+                       confirm_keyboard, get_favorite_office, remove_keyboard)
 from models import TgAccounts, Order, Base
 from config import AsyncSessionLocal, dp, engine, scheduler
 from admins.admins_action import url_for_add_office, url_for_get_list
@@ -135,29 +133,23 @@ async def command_start_handler(message: Message, state: FSMContext) -> None:
     Стартовая страница (страница авторизации или выбора кабинета).
     """
     async with AsyncSessionLocal() as session:
-        # Проверяем авторизацию пользователя
+        # Проверяем авторизацию пользователя и создаем клавиатуру
         keyboard = await create_all_builds_keyboard(session, message=message)
 
         if keyboard:
-            # Если пользователь авторизован, показываем кнопки
+            some_text = 'Н'
+            # Есть ли у Пользователя прошлые заказы:
+            if await get_favorite_office(session, message) is not None:
+                some_text = 'Повторить ⭐ заказ или н'
+            # Если пользователь авторизован, показываем кнопки зданий:
             await message.answer(
-                'Повторить ⭐ заказ или начнём с выбора здания:',
+                f'{some_text}ачнём с выбора здания:',
                 reply_markup=keyboard
             )
-        else:
-            url_tg_code = str(os.getenv('url_tg_code'))
-            try:
-                # Запрашиваем код через API
-                # (выполняется POST запрос в справочник):
-                await generate_code_for_registration_and_waiting_answer(
-                    message=message,
-                    state=state,
-                    external_resource_url=url_tg_code
-                )
 
-            except aiohttp.ClientError as e:
-                await message.answer(f'Ошибка подключения: {e}')
-                logging.error(f'Ошибка в {__name__} - {e}')
+        # или проходим регистрацию:
+        else:
+            await start_registration(message=message, state=state)
 
 
 @dp.message(RegistrationStates.waiting_for_code)
@@ -195,7 +187,7 @@ async def process_code(message: Message, state: FSMContext) -> None:
             # Сбрасываем состояние
             await state.clear()
             await message.answer(
-                    'Выберите здание:',
+                    'Выберите здание (локацию):',
                     reply_markup=keyboard
                 )
     else:
@@ -230,7 +222,7 @@ async def process_back_to_builds(callback_query: CallbackQuery):
     async with AsyncSessionLocal() as session:
         keyboard = await create_all_builds_keyboard(session)
         await callback_query.message.edit_text(
-            'Теперь выберите здание:',
+            'Выберите здание (локацию):',
             reply_markup=keyboard
         )
 

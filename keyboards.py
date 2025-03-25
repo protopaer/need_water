@@ -26,6 +26,18 @@ async def check_authorization(session, message) -> bool:
     return bool(check_authorization)
 
 
+# Вынести в функции
+async def get_favorite_office(session, message):
+    user_account = await session.execute(
+        select(TgAccounts)
+        .where(TgAccounts.account == str(message.chat.id))
+    )
+    user_account = user_account.scalar_one_or_none()
+
+    # if user_account.last_office is not None:
+    return await session.get(Offices, user_account.last_office)
+
+
 async def create_all_builds_keyboard(
     session, **kwargs
 ) -> Optional[InlineKeyboardMarkup]:
@@ -42,16 +54,8 @@ async def create_all_builds_keyboard(
         if not await check_authorization(session, message):
             return None
 
-        user_account = await session.execute(
-            select(TgAccounts)
-            .where(TgAccounts.account == str(message.chat.id))
-        )
-        user_account = user_account.scalar_one_or_none()
-
-        if user_account.last_office is not None:
-            favorite_office = (
-                await session.get(Offices, user_account.last_office)
-            )
+        favorite_office = await get_favorite_office(session, message)
+        if favorite_office is not None:
             # Добавляем избранный кабинет (если есть) в клавиатуру:
             buttons.append([
                 InlineKeyboardButton(
