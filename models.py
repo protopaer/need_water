@@ -54,7 +54,7 @@ class Offices(Base):
 
 class TgAccounts(Base):
     """Модель аккаунтов в Telegram."""
-    account = Column(String(TG_ACCOUNT_LEN), nullable=False)
+    account = Column(String(TG_ACCOUNT_LEN), nullable=False, unique=True)
     blocked = Column(Boolean, default=False)
     last_office = Column(
         Integer, ForeignKey('offices.id'), default=None

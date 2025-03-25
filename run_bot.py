@@ -14,11 +14,16 @@ from sqlalchemy import insert, update
 from bot_logging import configure_logging
 from constants import (FIRST_SECTION,
                        OUR_TIMEZONE,
-                       SECOND_SECTION)
+                       REGISTRATION_DONE,
+                       REPEAT_TEXT,
+                       SECOND_SECTION,
+                       START_AGAIN,
+                       START_TEXT)
 from function import (add_orgers_in_archive,
                       check_office_exists,
                       check_order_today,
                       check_user_today,
+                      check_authorization,
                       collect_orders_for_interval,
                       create_user_attrs,
                       format_orders_message,
@@ -137,23 +142,21 @@ async def command_start_handler(message: Message, state: FSMContext) -> None:
     Стартовая страница (страница авторизации или выбора кабинета).
     """
     async with AsyncSessionLocal() as session:
-        # Проверяем авторизацию пользователя и создаем клавиатуру
-        keyboard = await create_all_builds_keyboard(session, message=message)
+        # Проверяем авторизацию пользователя...:
+        if not await check_authorization(session, message):
+            # если нет - запускаем регистрацию:
+            registration_complete = await start_registration(message, state)
+            if not registration_complete:
+                return  # Прерываем (если регистрация не завершена)
 
-        if keyboard:
-            some_text = 'Н'
-            # Есть ли у Пользователя прошлые заказы:
-            if await get_favorite_office(session, message) is not None:
-                some_text = 'Повторить ⭐ заказ или н'
-            # Если пользователь авторизован, показываем кнопки зданий:
-            await message.answer(
-                f'{some_text}ачнём с выбора здания:',
-                reply_markup=keyboard
-            )
+        favorite_office = await get_favorite_office(session, message)  # FIXME!!!
+        keyboard = await create_all_builds_keyboard(session,
+                                                    message=message)
 
-        # или проходим регистрацию:
-        else:
-            await start_registration(message=message, state=state)
+        all_text = START_TEXT if favorite_office is None else (
+            REPEAT_TEXT + START_TEXT[1:]
+        )  # FIXME!!!
+        await message.answer(all_text, reply_markup=keyboard)
 
 
 @dp.message(RegistrationStates.waiting_for_code)
@@ -161,11 +164,11 @@ async def process_code(message: Message, state: FSMContext) -> None:
     """
     Обработчик ввода кода авторизации.
     """
+    user_in_chat = create_user_attrs(message)
+
     user_code = message.text  # Код, введенный пользователем
     data = await state.get_data()
     generated_code = str(data.get('code'))  # Получаем код из состояния
-
-    user_in_chat = create_user_attrs(message)
 
     if user_code == generated_code:
         # Если код верный, добавляем запись в таблицу TgAccounts
@@ -179,21 +182,17 @@ async def process_code(message: Message, state: FSMContext) -> None:
             await session.execute(new_account)
             await session.commit()
 
-            await message.answer('Вот и вся регистрация!')
+            await message.answer(REGISTRATION_DONE)
             logging.info(
                 f'{user_in_chat} успешно авторизовался и сохранен в базе'
             )
-
-            keyboard = await create_all_builds_keyboard(
-                session, message=message
+            keyboard = (
+                await create_all_builds_keyboard(session, message=message)
             )
-
             # Сбрасываем состояние
             await state.clear()
-            await message.answer(
-                    'Выберите здание (локацию):',
-                    reply_markup=keyboard
-                )
+            await message.answer(START_TEXT, reply_markup=keyboard)
+
     else:
         await message.answer('❌ Неверный код.')
         logging.info(f'{user_in_chat} ввел неверный код')
@@ -226,8 +225,7 @@ async def process_back_to_builds(callback_query: CallbackQuery):
     async with AsyncSessionLocal() as session:
         keyboard = await create_all_builds_keyboard(session)
         await callback_query.message.edit_text(
-            'Выберите здание (локацию):',
-            reply_markup=keyboard
+            START_AGAIN, reply_markup=keyboard
         )
 
 

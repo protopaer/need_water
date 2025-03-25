@@ -1,48 +1,27 @@
-from typing import Optional
+# from typing import Optional
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from constants import OFFICE_IN_LINE
+from constants import OFFICE_IN_LINE, REPEAT_TEXT, START_TEXT
 from function import get_favorite_office
-from models import Offices, TgAccounts, Builds
-
-
-async def check_authorization(session, message) -> bool:
-    """
-    Проверяет, авторизован ли Пользователь.
-    """
-    tg_account = str(message.chat.id)  # Аккаунт из запроса
-
-    # Проверяем, есть ли запись в таблице TgAccounts
-    result = await session.execute(
-        select(TgAccounts).where(
-            TgAccounts.account == tg_account,
-            TgAccounts.blocked == False
-        )
-    )
-    check_authorization = result.scalars().first()
-
-    # Возвращаем True, если пользователь авторизован, иначе False
-    return bool(check_authorization)
+from models import Offices, Builds
 
 
 async def create_all_builds_keyboard(
     session, **kwargs
-) -> Optional[InlineKeyboardMarkup]:
+) -> InlineKeyboardMarkup:
     """
-    Создает клавиатуру со списком зданий.
+    Создает клавиатуру со списком зданий (может вернуть None).
     """
 
     message = kwargs.get('message')
     # Создаем кнопки
     buttons = []
 
-    # Проблема были здесь:
+    # FIXME Проблемы были здесь (почему после получения кода он заходит сюда):
     if message:
-        if not await check_authorization(session, message):
-            return None
-
+        # all_text = START_TEXT
         favorite_office = await get_favorite_office(session, message)
         if favorite_office is not None:
             # Добавляем избранный кабинет (если есть) в клавиатуру:
@@ -52,6 +31,7 @@ async def create_all_builds_keyboard(
                     callback_data=f'button{favorite_office.id}'
                 )
             ])
+            # all_text = REPEAT_TEXT + START_TEXT[1:]
 
     # Получаем список всех зданий:
     result = await session.execute(
@@ -72,6 +52,25 @@ async def create_all_builds_keyboard(
     ])
 
     return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+# По сути дубль!!!
+async def create_builds_keyboard(session) -> InlineKeyboardMarkup:
+    """
+    Создает inline клавиатуру со списком зданий.
+    """
+    # Получаем список всех зданий из базы данных
+    result = await session.execute(select(Builds))
+    builds = result.scalars().all()
+
+    # Создаем кнопки для каждого здания
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(
+            text=build.name, callback_data=f'build_{build.id}'
+        )]
+        for build in builds
+    ])
+    return keyboard
 
 
 async def create_all_offices_keyboard(session: AsyncSession, build_id: int):
@@ -135,21 +134,3 @@ async def remove_keyboard(message) -> None:
     Удаляет клавиатуру из сообщения после нажатия Пользователем на кнопку.
     """
     await message.edit_reply_markup(reply_markup=None)
-
-
-async def create_builds_keyboard(session) -> InlineKeyboardMarkup:
-    """
-    Создает inline клавиатуру со списком зданий.
-    """
-    # Получаем список всех зданий из базы данных
-    result = await session.execute(select(Builds))
-    builds = result.scalars().all()
-
-    # Создаем кнопки для каждого здания
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(
-            text=build.name, callback_data=f'build_{build.id}'
-        )]
-        for build in builds
-    ])
-    return keyboard

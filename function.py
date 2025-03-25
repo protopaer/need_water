@@ -10,7 +10,7 @@ from zoneinfo import ZoneInfo
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 from sqlalchemy import and_, select, update
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, joinedload
 
 from constants import (API_PHONEBOOK_AWAIT,
                        GET_LIST,
@@ -67,6 +67,25 @@ def get_id_from_callback_query(callback_query, part: str) -> int:
     return int(str(callback_query.data).replace(part, ''))
 
 
+async def check_authorization(session, message) -> bool:
+    """
+    Проверяет, авторизован ли Пользователь.
+    """
+    tg_account = str(message.chat.id)  # Аккаунт из запроса
+
+    # Проверяем, есть ли запись в таблице TgAccounts
+    result = await session.execute(
+        select(TgAccounts).where(
+            TgAccounts.account == tg_account,
+            TgAccounts.blocked == False
+        )
+    )
+    check_authorization = result.scalar_one_or_none()
+
+    # Возвращаем True, если пользователь авторизован, иначе False
+    return False if check_authorization is None else True
+
+
 async def generate_code_for_registration_and_waiting_answer(
     message: Message,
     state: FSMContext,
@@ -79,6 +98,8 @@ async def generate_code_for_registration_and_waiting_answer(
         async with http_session.post(
             external_resource_url, timeout=API_PHONEBOOK_AWAIT
         ) as response:
+
+            # Логгирую запрос пользователя:
             user_in_chat = create_user_attrs(message)
             logging.info(
                 f'{user_in_chat} запросил обновление кода на сайте АТУ.'
@@ -92,13 +113,15 @@ async def generate_code_for_registration_and_waiting_answer(
                 await state.update_data(code=code)
                 await message.answer('Введите код из системы:')
                 await state.set_state(RegistrationStates.waiting_for_code)
-
             else:
                 await message.answer('Ошибка получения кода')
                 logging.error(f'Ошибка получения кода для {user_in_chat}')
 
 
-async def start_registration(message: Message, state: FSMContext,):
+async def start_registration(message: Message, state: FSMContext):
+    """
+    Запускает регистрацию (генерирует и сравнивает коды).
+    """
     url_tg_code = str(os.getenv('url_tg_code'))
     try:
         # Запрашиваем код через API (выполняется POST запрос в справочник):
@@ -116,25 +139,19 @@ async def start_registration(message: Message, state: FSMContext,):
 async def get_favorite_office(session, message) -> Optional[Offices]:
     """Возвращает Кабинет последнего Заказа, если он был."""
     try:
-        user_account = await session.execute(
+        result = await session.execute(
             select(TgAccounts)
             .where(TgAccounts.account == str(message.chat.id))
+            .options(joinedload(TgAccounts.office))  # Жадная загрузка связанного офиса
         )
-        user_account = user_account.scalar_one_or_none()
 
-        if user_account.last_office is None:
-            return None
+        user_account = result.scalar_one_or_none()
 
-        # Получаем кабинет с проверкой существования
-        office = await session.execute(
-            select(Offices)
-            .where(Offices.id == user_account.last_office)
-        )
-        return office.scalar_one_or_none()
+        # Возвращаем сразу связанный офис (если есть)
+        return user_account.office if user_account else None
 
     except Exception as e:
-        # Логирование ошибки (можно заменить на ваш логгер)
-        logging.error(f'Ошибка в получении последнего кабинета: {e}')
+        logging.error(f'Ошибка при получении кабинета: {e}', exc_info=True)
         return None
 
 
