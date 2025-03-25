@@ -64,7 +64,7 @@ async def send_interval_message(bot: Bot, hour: int) -> None:
     """
     async with AsyncSessionLocal() as session:
         today = datetime.now().isoweekday()  # Находит день недели для сегодня.
-        if today < 6 and hour < SECOND_SECTION + 1:  # костыль с 1!!!!!!!!!!!!!!!
+        if today <= 5 and hour <= SECOND_SECTION:  # костыль
             try:
                 # Получаем данные о заказах для указанного интервала
                 orders = await collect_orders_for_interval(session, hour)
@@ -90,6 +90,7 @@ async def send_interval_message(bot: Bot, hour: int) -> None:
                 )
                 await session.rollback()
                 logging.info('Сессия откатилась назад')
+
         # TODO может быть здесь надо проставить сценарий для вечера пятницы
         # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
