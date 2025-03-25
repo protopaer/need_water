@@ -23,6 +23,12 @@ class Builds(Base):
     """Модель зданий."""
     name = Column(String(NAME_BUILD_COUNT), nullable=False)
 
+    offices = relationship(
+        "Offices",
+        backref="building",
+        cascade="all, delete-orphan"
+    )  # получаем build для конкретного office
+
 
 class Offices(Base):
     """Модель кабинетов."""
@@ -32,8 +38,6 @@ class Offices(Base):
     build_id = Column(
         Integer, ForeignKey('builds.id'), nullable=False
     )
-
-    build = relationship("Builds", backref="orders")
 
     def __repr__(self):
         return f'{self.abbr} /каб. {self.office_number}/'
@@ -47,11 +51,22 @@ class TgAccounts(Base):
         Integer, ForeignKey('offices.id'), default=None
     )
 
-    office = relationship("Offices", backref="accounts")
+    # Отношения для доступа к связанным объектам
+    office = relationship(
+        'Offices',
+        backref='office_accounts'
+    )  # получаем все tgaccounts для конкретного office / зачем только?
+
+    orders = relationship(
+        'Order',
+        backref='account',
+        cascade='all, delete-orphan',  # Добавляем каскадное удаление
+        passive_deletes=True  # Опционально: оптимизация для удаления
+    )  # получаем все заявки конкретного tgaccount
 
 
 class Order(Base):
-    """Модель заказов воды."""
+    """Модель Заказов воды."""
     office_id = Column(Integer, ForeignKey('offices.id'), nullable=False)
     tg_account_id = Column(
         Integer, ForeignKey('tgaccounts.id'), nullable=False
@@ -59,7 +74,3 @@ class Order(Base):
     order_date = Column(Date, nullable=False)
     order_time = Column(Time, nullable=False)
     in_archive = Column(Boolean, default=False)
-
-    # Опционально: отношения для удобства доступа к связанным объектам
-    office = relationship("Offices", backref="orders")
-    tg_account = relationship("TgAccounts", backref="orders")

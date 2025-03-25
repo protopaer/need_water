@@ -13,16 +13,23 @@ from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy import insert, update
 
 from bot_logging import configure_logging
-from constants import (FIRST_SECTION, OUR_TIMEZONE, SECOND_SECTION,
-                       API_PHONEBOOK_AWAIT)
-from function import (add_orgers_in_archive, check_office_exists,
-                      check_order_today, check_user_today,
-                      collect_orders_for_interval, create_user_attrs,
+from constants import (FIRST_SECTION,
+                       OUR_TIMEZONE,
+                       SECOND_SECTION)
+from function import (add_orgers_in_archive,
+                      check_office_exists,
+                      check_order_today,
+                      check_user_today,
+                      collect_orders_for_interval,
+                      create_user_attrs,
                       format_orders_message,
+                      generate_code_for_registration_and_waiting_answer,
                       get_datetime_in_timezone_for_message,
+                      get_office_id_from_callback_query,
                       get_slot_order,
                       return_office)
-from keyboards import (create_all_builds_keyboard, create_all_offices_keyboard,
+from keyboards import (create_all_builds_keyboard,
+                       create_all_offices_keyboard,
                        confirm_keyboard, remove_keyboard)
 from models import TgAccounts, Order, Base
 from config import AsyncSessionLocal, dp, engine, scheduler
@@ -123,9 +130,7 @@ async def scheduled_message(bot: Bot):
 
 
 @dp.message(Command('start'))
-async def command_start_handler(
-    message: Message, state: FSMContext
-) -> None:
+async def command_start_handler(message: Message, state: FSMContext) -> None:
     """
     Стартовая страница (страница авторизации или выбора кабинета).
     """
@@ -144,31 +149,11 @@ async def command_start_handler(
             try:
                 # Запрашиваем код через API
                 # (выполняется POST запрос в справочник):
-                async with aiohttp.ClientSession() as http_session:
-                    async with http_session.post(
-                        url_tg_code, timeout=API_PHONEBOOK_AWAIT
-                    ) as response:
-                        user_in_chat = create_user_attrs(message)
-                        logging.info(
-                            f'{user_in_chat} '
-                            'запросил обновление кода на сайте АТУ.'
-                        )
-                        if response.status == 201:
-                            data = await response.json()  # данные
-                            code = str(data.get('number'))  # код
-                            logging.info(f'{user_in_chat} получил код {code}')
-                            # Сохраняем код в состоянии
-                            await state.update_data(code=code)
-                            await message.answer('Введите код из системы:')
-                            await state.set_state(
-                                RegistrationStates.waiting_for_code
-                            )
-
-                        else:
-                            await message.answer('Ошибка получения кода')
-                            logging.error(
-                                f'Ошибка получения кода для {user_in_chat}'
-                            )
+                await generate_code_for_registration_and_waiting_answer(
+                    message=message,
+                    state=state,
+                    external_resource_url=url_tg_code
+                )
 
             except aiohttp.ClientError as e:
                 await message.answer(f'Ошибка подключения: {e}')
@@ -179,7 +164,9 @@ async def command_start_handler(
 async def process_building_selection(
     callback_query: CallbackQuery, state: FSMContext
 ):
-    """Обработка выбора здания"""
+    """
+    Обработка выбора Здания Пользователем.
+    """
     build_id = int(str(callback_query.data).split('_')[1])  # <-- непонятная 1
 
     async with AsyncSessionLocal() as session:
@@ -193,7 +180,9 @@ async def process_building_selection(
 
 @dp.callback_query(lambda c: c.data == 'back_to_builds')
 async def process_back_to_builds(callback_query: CallbackQuery):
-    """Обработка возврата к списку зданий"""
+    """
+    Обработка возврата к списку Зданий.
+    """
     async with AsyncSessionLocal() as session:
         keyboard = await create_all_builds_keyboard(session)
         await callback_query.message.edit_text(
@@ -251,7 +240,8 @@ async def process_callback_button(callback_query: CallbackQuery) -> None:
 
     Появляется, когда авторизованный пользователь нажал на кнопку кабинета.
     """
-    office_id = int(str(callback_query.data).replace('button', ''))  # ID кабинета
+    # office_id = int(str(callback_query.data).replace('button', ''))
+    office_id = get_office_id_from_callback_query(callback_query, 'button')
 
     user_in_chat = create_user_attrs(callback_query)
 
@@ -278,7 +268,8 @@ async def process_confirm_callback(callback_query: CallbackQuery) -> None:
     """
     Обработчик подтверждения выбора кабинета.
     """
-    office_id = int(str(callback_query.data).replace('confirm_', ''))  # ID кабинета
+    # office_id = int(str(callback_query.data).replace('confirm_', ''))
+    office_id = get_office_id_from_callback_query(callback_query, 'confirm_')
     tg_account_id = callback_query.from_user.id  # ID пользователя
     user_in_chat = create_user_attrs(callback_query)
 

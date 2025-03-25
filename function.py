@@ -1,16 +1,19 @@
 import logging
 import re
+from aiohttp import ClientSession
 from collections import defaultdict
 from datetime import time
 from typing import Optional
 from zoneinfo import ZoneInfo
 
-from aiogram.types import CallbackQuery
+from aiogram.fsm.context import FSMContext
+from aiogram.types import CallbackQuery, Message
 from sqlalchemy import and_, select, update
 from sqlalchemy.orm import selectinload
 
-from constants import GET_LIST, FIRST_SECTION, OUR_TIMEZONE, SECOND_SECTION
+from constants import API_PHONEBOOK_AWAIT, GET_LIST, FIRST_SECTION, OUR_TIMEZONE, SECOND_SECTION
 from models import Offices, Order
+from users.users_fcm import RegistrationStates
 
 
 def get_datetime_in_timezone_for_message(message_callback):
@@ -46,10 +49,48 @@ def format_orders_message(hour: int, orders: Optional[list]) -> str:
     return message
 
 
-def create_user_attrs(obj):
+def create_user_attrs(obj) -> str:
     """Создание записи о пользователе вида «ID (name fullname)»."""
     chat = obj.from_user if isinstance(obj, CallbackQuery) else obj.chat
     return f'{chat.id} ({chat.first_name} {chat.full_name})'
+
+
+def get_office_id_from_callback_query(callback_query, part: str) -> int:
+    """
+    Возвращает id кабинета из callback запроса.
+    """
+    return int(str(callback_query.data).replace(part, ''))
+
+
+async def generate_code_for_registration_and_waiting_answer(
+    message: Message,
+    state: FSMContext,
+    external_resource_url: str,
+):
+    """
+    Проверяе статус запроса к внешнему ресурсу, сохраняет код и ждет ответа.
+    """
+    async with ClientSession() as http_session:
+        async with http_session.post(
+            external_resource_url, timeout=API_PHONEBOOK_AWAIT
+        ) as response:
+            user_in_chat = create_user_attrs(message)
+            logging.info(
+                f'{user_in_chat} запросил обновление кода на сайте АТУ.'
+            )
+
+            if response.status == 201:
+                data = await response.json()  # данные
+                code = str(data.get('number'))  # код
+                logging.info(f'{user_in_chat} получил код {code}')
+                # Сохраняем код в состоянии
+                await state.update_data(code=code)
+                await message.answer('Введите код из системы:')
+                await state.set_state(RegistrationStates.waiting_for_code)
+
+            else:
+                await message.answer('Ошибка получения кода')
+                logging.error(f'Ошибка получения кода для {user_in_chat}')
 
 
 async def return_office(session, office_id) -> Offices:
