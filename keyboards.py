@@ -47,10 +47,12 @@ async def create_all_builds_keyboard(
             .where(TgAccounts.account == str(message.chat.id))
         )
         user_account = user_account.scalar_one_or_none()
-        favorite_office = await session.get(Offices, user_account.last_office)
 
-        # Добавляем избранный кабинет (если есть) в клавиатуру:
-        if favorite_office:
+        if user_account.last_office is not None:
+            favorite_office = (
+                await session.get(Offices, user_account.last_office)
+            )
+            # Добавляем избранный кабинет (если есть) в клавиатуру:
             buttons.append([
                 InlineKeyboardButton(
                     text=f'⭐ {favorite_office.abbr}',

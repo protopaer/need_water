@@ -160,6 +160,49 @@ async def command_start_handler(message: Message, state: FSMContext) -> None:
                 logging.error(f'Ошибка в {__name__} - {e}')
 
 
+@dp.message(RegistrationStates.waiting_for_code)
+async def process_code(message: Message, state: FSMContext) -> None:
+    """
+    Обработчик ввода кода авторизации.
+    """
+    user_code = message.text  # Код, введенный пользователем
+    data = await state.get_data()
+    generated_code = str(data.get('code'))  # Получаем код из состояния
+
+    user_in_chat = create_user_attrs(message)
+
+    if user_code == generated_code:
+        # Если код верный, добавляем запись в таблицу TgAccounts
+        async with AsyncSessionLocal() as session:
+            # Создаем запись TgAccounts:
+            new_account = insert(TgAccounts).values(
+                account=str(message.chat.id),
+                blocked=False
+            )
+            # Добавляем запись в базу данных:
+            await session.execute(new_account)
+            await session.commit()
+
+            await message.answer('Вот и вся регистрация!')
+            logging.info(
+                f'{user_in_chat} успешно авторизовался и сохранен в базе'
+            )
+
+            keyboard = await create_all_builds_keyboard(
+                session, message=message
+            )
+
+            # Сбрасываем состояние
+            await state.clear()
+            await message.answer(
+                    'Выберите здание:',
+                    reply_markup=keyboard
+                )
+    else:
+        await message.answer('❌ Неверный код.')
+        logging.info(f'{user_in_chat} ввел неверный код')
+
+
 @dp.callback_query(lambda c: c.data.startswith('building_'))
 async def process_building_selection(
     callback_query: CallbackQuery, state: FSMContext
@@ -189,48 +232,6 @@ async def process_back_to_builds(callback_query: CallbackQuery):
             'Теперь выберите здание:',
             reply_markup=keyboard
         )
-
-
-@dp.message(RegistrationStates.waiting_for_code)
-async def process_code(message: Message, state: FSMContext) -> None:
-    """
-    Обработчик ввода кода авторизации.
-    """
-    user_code = message.text  # Код, введенный пользователем
-    data = await state.get_data()
-    generated_code = str(data.get('code'))  # Получаем код из состояния
-
-    user_in_chat = create_user_attrs(message)
-
-    if user_code == generated_code:
-        # Если код верный, добавляем запись в таблицу TgAccounts
-        async with AsyncSessionLocal() as session:
-            # Добавляем запись в таблицу TgAccounts:
-            await session.execute(
-                insert(TgAccounts).values(
-                    account=str(message.chat.id),
-                    blocked=False
-                )
-            )
-            await session.commit()
-            await message.answer('Вот и вся регистрация!')
-            logging.info(
-                f'{user_in_chat} успешно авторизовался и сохранен в базе'
-            )
-
-            keyboard = await create_all_builds_keyboard(
-                session, message=message
-            )
-
-            # Сбрасываем состояние
-            await state.clear()
-            await message.answer(
-                    'Выберите здание:',
-                    reply_markup=keyboard
-                )
-    else:
-        await message.answer('❌ Неверный код.')
-        logging.info(f'{user_in_chat} ввел неверный код')
 
 
 @dp.callback_query(lambda c: c.data.startswith('button'))

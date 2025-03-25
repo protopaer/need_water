@@ -11,7 +11,7 @@ class BaseModel:
     def __tablename__(cls):
         return cls.__name__.lower()
 
-    id = Column(Integer, primary_key=True)
+    id = Column(Integer, primary_key=True, nullable=False)
 
 
 # Функция declarative_base() возвращает класс,

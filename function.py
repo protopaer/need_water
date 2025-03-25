@@ -95,9 +95,8 @@ async def generate_code_for_registration_and_waiting_answer(
 
 async def return_office(session, office_id) -> Offices:
     """Получив office_id - возвращает экземпляр Кабинета."""
-    result = await session.execute(
-        select(Offices).where(Offices.id == office_id)
-    )
+    office = select(Offices).where(Offices.id == office_id)
+    result = await session.execute(office)
     return result.scalars().first()
 
 
@@ -124,14 +123,14 @@ async def check_order_today(session, office, callback_query):
     today = localized_time.date()  # Извлекаем дату
     chat_user_id = create_user_attrs(callback_query.message)
 
-    result = await session.execute(
-        select(Order).where(
-            and_(
-                Order.office_id == office.id,
-                Order.order_date == today
-            )
+    # Как правильно получать записи из БД в асинхроне?!!!!!!!!!!!!!!!!!!!!!!!!!! Таких у меня дофига!
+    order = select(Order).where(
+        and_(
+            Order.office_id == office.id,
+            Order.order_date == today
         )
     )
+    result = await session.execute(order)
     existing_order = result.scalars().first()
 
     if existing_order:  # Если заявка уже существует, отправляем сообщение
@@ -233,14 +232,12 @@ async def add_orgers_in_archive(session, hour):
     """
     Проставляет статус В АРХИВЕ заявкам после отправки сообщения админам.
     """
-    await session.execute(
-        update(Order).where(
-            and_(
-                Order.order_time < time(hour, 0),
-                Order.in_archive == False
-            )
-        ).values(in_archive=True)
-    )
+    orders_in_archive = update(Order).where(
+        and_(
+            Order.order_time < time(hour, 0),
+            Order.in_archive == False
+        )
+    ).values(in_archive=True)
 
-    # Сохраняем изменения в базе данных
+    await session.execute(orders_in_archive)
     await session.commit()
