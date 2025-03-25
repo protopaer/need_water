@@ -25,10 +25,13 @@ from function import (add_orgers_in_archive,
                       get_datetime_in_timezone_for_message,
                       get_id_from_callback_query,
                       get_slot_order,
-                      return_office, start_registration)
+                      get_favorite_office,
+                      return_office,
+                      start_registration)
 from keyboards import (create_all_builds_keyboard,
                        create_all_offices_keyboard,
-                       confirm_keyboard, get_favorite_office, remove_keyboard)
+                       confirm_keyboard,
+                       remove_keyboard)
 from models import TgAccounts, Order, Base
 from config import AsyncSessionLocal, dp, engine, scheduler
 from admins.admins_action import url_for_add_office, url_for_get_list

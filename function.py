@@ -17,7 +17,7 @@ from constants import (API_PHONEBOOK_AWAIT,
                        FIRST_SECTION,
                        OUR_TIMEZONE,
                        SECOND_SECTION)
-from models import Offices, Order
+from models import Offices, Order, TgAccounts
 from users.users_fcm import RegistrationStates
 
 
@@ -111,6 +111,31 @@ async def start_registration(message: Message, state: FSMContext,):
     except ClientError as e:
         await message.answer(f'Ошибка подключения: {e}')
         logging.error(f'Ошибка в {__name__} - {e}')
+
+
+async def get_favorite_office(session, message) -> Optional[Offices]:
+    """Возвращает Кабинет последнего Заказа, если он был."""
+    try:
+        user_account = await session.execute(
+            select(TgAccounts)
+            .where(TgAccounts.account == str(message.chat.id))
+        )
+        user_account = user_account.scalar_one_or_none()
+
+        if user_account.last_office is None:
+            return None
+
+        # Получаем кабинет с проверкой существования
+        office = await session.execute(
+            select(Offices)
+            .where(Offices.id == user_account.last_office)
+        )
+        return office.scalar_one_or_none()
+
+    except Exception as e:
+        # Логирование ошибки (можно заменить на ваш логгер)
+        logging.error(f'Ошибка в получении последнего кабинета: {e}')
+        return None
 
 
 async def return_office(session, office_id) -> Offices:

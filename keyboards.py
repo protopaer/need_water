@@ -4,6 +4,7 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from constants import OFFICE_IN_LINE
+from function import get_favorite_office
 from models import Offices, TgAccounts, Builds
 
 
@@ -24,18 +25,6 @@ async def check_authorization(session, message) -> bool:
 
     # Возвращаем True, если пользователь авторизован, иначе False
     return bool(check_authorization)
-
-
-# Вынести в функции
-async def get_favorite_office(session, message):
-    user_account = await session.execute(
-        select(TgAccounts)
-        .where(TgAccounts.account == str(message.chat.id))
-    )
-    user_account = user_account.scalar_one_or_none()
-
-    # if user_account.last_office is not None:
-    return await session.get(Offices, user_account.last_office)
 
 
 async def create_all_builds_keyboard(
