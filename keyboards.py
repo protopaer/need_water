@@ -1,4 +1,5 @@
 # from typing import Optional
+import json
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -104,7 +105,11 @@ def confirm_keyboard(office_id: int) -> InlineKeyboardMarkup:
             ),
             InlineKeyboardButton(
                 text='❌ Мимо)',
-                callback_data='cancel'
+                # callback_data='cancel'
+                callback_data=json.dumps({
+                    'action': 'back_to_offices',
+                    'office_id': office_id
+                })
             )
         ]
     ])

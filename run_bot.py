@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 import os
 from datetime import datetime
@@ -17,7 +18,8 @@ from constants import (FIRST_SECTION,
                        REGISTRATION_DONE,
                        REPEAT_TEXT,
                        SECOND_SECTION,
-                       START_AGAIN,
+                       START_AGAIN_BUILD,
+                       START_AGAIN_OFFICE,
                        START_TEXT)
 from function import (add_orgers_in_archive,
                       check_office_exists,
@@ -37,7 +39,7 @@ from keyboards import (create_all_builds_keyboard,
                        create_all_offices_keyboard,
                        confirm_keyboard,
                        remove_keyboard)
-from models import TgAccounts, Order, Base
+from models import Offices, TgAccounts, Order, Base
 from config import AsyncSessionLocal, dp, engine, scheduler
 from admins.admins_action import url_for_add_office, url_for_get_list
 from users.users_fcm import RegistrationStates
@@ -240,7 +242,7 @@ async def process_back_to_builds(callback_query: CallbackQuery):
             message=callback_query.message
         )
         await callback_query.message.edit_text(
-            START_AGAIN, reply_markup=keyboard
+            START_AGAIN_BUILD, reply_markup=keyboard
         )
 
 
@@ -278,7 +280,6 @@ async def process_confirm_callback(callback_query: CallbackQuery) -> None:
     """
     Обработчик подтверждения выбора кабинета.
     """
-    # office_id = int(str(callback_query.data).replace('confirm_', ''))
     office_id = get_id_from_callback_query(callback_query, 'confirm_')
     tg_account_id = callback_query.from_user.id  # ID пользователя
     user_in_chat = create_user_attrs(callback_query)
@@ -291,7 +292,6 @@ async def process_confirm_callback(callback_query: CallbackQuery) -> None:
         if not await check_office_exists(callback_query, office):
             return  # Если кабинет не найден, завершаем выполнение
 
-        # Удаляем клавиатуру после нажатия
         await remove_keyboard(callback_query.message)
 
         localized_time = (
@@ -344,16 +344,28 @@ async def process_confirm_callback(callback_query: CallbackQuery) -> None:
         )
 
 
-@dp.callback_query(lambda c: c.data == 'cancel')
-async def process_cancel_callback(callback_query: CallbackQuery) -> None:
+@dp.callback_query(
+    lambda c: json.loads(c.data).get('action') == 'back_to_offices'
+)
+async def process_cancel_callback(callback_query: CallbackQuery):
     """
-    Обработчик отмены выбора кабинета.
+    Обработчик отмены выбора Кабинета и возврата клавиатуры Кабинетов Здания.
     """
     user_in_chat = create_user_attrs(callback_query)
+    office_id = json.loads(callback_query.data).get('office_id')
 
     await remove_keyboard(callback_query.message)
     await callback_query.message.answer('❌ Выбор кабинета отменен.')
     logging.info(f'{user_in_chat} отменил выбор кабинета.')
+
+    async with AsyncSessionLocal() as session:
+        office = await session.get(Offices, office_id)
+        build_id = office.build_id
+        keyboard = await create_all_offices_keyboard(session, build_id)
+        await callback_query.message.answer(
+            START_AGAIN_OFFICE,
+            reply_markup=keyboard
+        )
 
 
 async def setup_bot(token: str) -> Bot:
