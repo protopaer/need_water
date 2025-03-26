@@ -306,9 +306,8 @@ async def process_confirm_callback(callback_query: CallbackQuery) -> None:
         # Перезаписываем последний выбор пользователя:
         await session.execute(
             update(TgAccounts)
+            .where(TgAccounts.account == str(tg_account_id))
             .values(
-                account=tg_account_id,
-                blocked=False,
                 last_office=office_id
             )
         )
