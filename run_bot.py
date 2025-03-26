@@ -230,10 +230,14 @@ async def process_building_selection(
 async def process_back_to_builds(callback_query: CallbackQuery):
     """
     Обработка возврата к списку Зданий.
+
+    Проверено!
     """
     async with AsyncSessionLocal() as session:
         keyboard = await create_all_builds_keyboard(
-            session, check_favorite=True
+            session,
+            check_favorite=True,
+            message=callback_query.message
         )
         await callback_query.message.edit_text(
             START_AGAIN, reply_markup=keyboard

@@ -45,32 +45,13 @@ async def create_all_builds_keyboard(
     # Добавляем все здания в клавиатуру:
     buttons.extend([
         [InlineKeyboardButton(
-            text=f'{build.name}',
+            text=build,
             callback_data=f'building_{build.id}'  # как работает building_Х ?
         )]
         for build in builds
     ])
 
     return InlineKeyboardMarkup(inline_keyboard=buttons)
-
-
-# # По сути дубль!!!
-# async def create_builds_keyboard(session) -> InlineKeyboardMarkup:
-#     """
-#     Создает inline клавиатуру со списком зданий.
-#     """
-#     # Получаем список всех зданий из базы данных
-#     result = await session.execute(select(Builds))
-#     builds = result.scalars().all()
-
-#     # Создаем кнопки для каждого здания
-#     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-#         [InlineKeyboardButton(
-#             text=build.name, callback_data=f'build_{build.id}'
-#         )]
-#         for build in builds
-#     ])
-#     return keyboard
 
 
 async def create_all_offices_keyboard(session: AsyncSession, build_id: int):

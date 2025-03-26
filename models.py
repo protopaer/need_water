@@ -38,6 +38,9 @@ class Builds(Base):
         cascade="all, delete-orphan"
     )
 
+    def __repr__(self):
+        return self.name
+
 
 class Offices(Base):
     """Модель кабинетов."""
