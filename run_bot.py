@@ -379,9 +379,9 @@ async def main() -> None:
         await conn.run_sync(Base.metadata.create_all)
         logging.info('Движок создан, база подключена')
 
-    # Очищаем таблицы
-    await clear_table(engine, TgAccounts)
-    await clear_table(engine, Order)
+    # # Очищаем таблицы
+    # await clear_table(engine, TgAccounts)
+    # await clear_table(engine, Order)
 
     token = str(os.getenv('bot_token'))
     bot = await setup_bot(token)
