@@ -253,7 +253,6 @@ async def process_callback_button(callback_query: CallbackQuery) -> None:
 
     Появляется, когда авторизованный пользователь нажал на кнопку кабинета.
     """
-    # office_id = int(str(callback_query.data).replace('button', ''))
     office_id = get_id_from_callback_query(callback_query, 'button')
 
     user_in_chat = create_user_attrs(callback_query)
@@ -351,20 +350,23 @@ async def process_cancel_callback(callback_query: CallbackQuery):
     """
     Обработчик отмены выбора Кабинета и возврата клавиатуры Кабинетов Здания.
     """
-    user_in_chat = create_user_attrs(callback_query)
+    # Сбор данных:
     office_id = json.loads(callback_query.data).get('office_id')
 
+    # Очистка:
     await remove_keyboard(callback_query.message)
     await callback_query.message.answer('❌ Выбор кабинета отменен.')
+
+    # Логгирование:
+    user_in_chat = create_user_attrs(callback_query)
     logging.info(f'{user_in_chat} отменил выбор кабинета.')
 
+    # Формирование клавиатуры кабинетов в здании:
     async with AsyncSessionLocal() as session:
         office = await session.get(Offices, office_id)
-        build_id = office.build_id
-        keyboard = await create_all_offices_keyboard(session, build_id)
+        keyboard = await create_all_offices_keyboard(session, office.build_id)
         await callback_query.message.answer(
-            START_AGAIN_OFFICE,
-            reply_markup=keyboard
+            START_AGAIN_OFFICE, reply_markup=keyboard
         )
 
 
