@@ -69,7 +69,6 @@ async def process_name(message: Message, state: FSMContext) -> None:
     await state.set_state(AddOfficeStates.waiting_for_office_number)
 
 
-# Обработчик ввода номера кабинета
 @router_add_office.message(AddOfficeStates.waiting_for_office_number)
 async def process_office_number(message: Message, state: FSMContext) -> None:
     """
@@ -86,7 +85,6 @@ async def process_office_number(message: Message, state: FSMContext) -> None:
     await state.set_state(AddOfficeStates.waiting_for_build_id)
 
 
-# Обработчик выбора здания
 @router_add_office.callback_query(lambda c: c.data.startswith('build_'))
 async def process_build_selection(
     callback_query: CallbackQuery, state: FSMContext
@@ -127,18 +125,22 @@ async def process_build_selection(
 # -----------------------------------------------------------------------------
 
 
-# Обработчик команды /add_build
 @router_add_office.message(Command(f'{ADD_BUILD}'))
 async def command_add_build(message: Message, state: FSMContext) -> None:
+    """
+    Обработчик комманды Админа по добавлению Здания.
+    """
     await message.answer(
         f'Введите название здания (до {NAME_BUILD_COUNT} символов):'
     )
     await state.set_state(AddBuildStates.waiting_for_name)
 
 
-# Обработчик ввода названия здания
 @router_add_office.message(AddBuildStates.waiting_for_name)
 async def process_build_name(message: Message, state: FSMContext) -> None:
+    """
+    Обработчик ввода названия Здания.
+    """
     if len(message.text) > NAME_BUILD_COUNT:
         await message.answer(
             f'Название слишком длинное! Максимум {NAME_BUILD_COUNT} символов.'
@@ -162,7 +164,7 @@ async def process_build_name(message: Message, state: FSMContext) -> None:
 )
 async def list_orders_handler(message: Message) -> None:
     """
-    Обработка команды админа вручную направить список заявок ко времени.
+    Обработка команды Админа вручную направить список Заявок ко времени.
     """
     async with AsyncSessionLocal() as session:
 
