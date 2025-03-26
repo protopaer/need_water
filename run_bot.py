@@ -9,7 +9,7 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, CallbackQuery
 from apscheduler.triggers.cron import CronTrigger
-from sqlalchemy import delete, insert, update
+from sqlalchemy import insert, update
 
 from bot_logging import configure_logging
 from constants import (FIRST_SECTION,
@@ -124,6 +124,7 @@ async def scheduled_message(bot: Bot):
             admins_id = list(
                 map(int, str(os.getenv('admin_id')).split(','))
                 )
+            logging.debug(admins_id)
             for admin_id in admins_id:
                 try:
                     await bot.send_message(admin_id, message_text1)
@@ -355,18 +356,18 @@ async def setup_bot(token: str) -> Bot:
     return bot
 
 
-async def clear_table(engine, model):
-    """Асинхронная очистка указанной таблицы"""
-    async with AsyncSessionLocal() as session:
-        try:
-            # Для SQLAlchemy 2.0+
-            await session.execute(delete(model))
-            await session.commit()
-            logging.info(f"Таблица {model.__tablename__} успешно очищена")
-        except Exception as e:
-            await session.rollback()
-            logging.error(f"Ошибка при очистке таблицы {model.__tablename__}: {e}")
-            raise
+# async def clear_table(engine, model):
+#     """Асинхронная очистка указанной таблицы"""
+#     async with AsyncSessionLocal() as session:
+#         try:
+#             # Для SQLAlchemy 2.0+
+#             await session.execute(delete(model))
+#             await session.commit()
+#             logging.info(f"Таблица {model.__tablename__} успешно очищена")
+#         except Exception as e:
+#             await session.rollback()
+#             logging.error(f"Ошибка при очистке таблицы {model.__tablename__}: {e}")
+#             raise
 
 
 # Run the bot
@@ -378,10 +379,6 @@ async def main() -> None:
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
         logging.info('Движок создан, база подключена')
-
-    # # Очищаем таблицы
-    # await clear_table(engine, TgAccounts)
-    # await clear_table(engine, Order)
 
     token = str(os.getenv('bot_token'))
     bot = await setup_bot(token)
