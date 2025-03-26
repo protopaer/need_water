@@ -151,8 +151,6 @@ async def get_favorite_office(session, message) -> Optional[Offices]:
 
         user_account = result.scalar_one_or_none()
 
-        print(f'Проверяю тип {type(user_account.office)}')  # Проверка
-
         # Возвращаем связанный офис (если есть):
         return user_account.office if user_account else None
 

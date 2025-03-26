@@ -45,7 +45,7 @@ async def create_all_builds_keyboard(
     # Добавляем все здания в клавиатуру:
     buttons.extend([
         [InlineKeyboardButton(
-            text=build,
+            text=build.name,
             callback_data=f'building_{build.id}'  # как работает building_Х ?
         )]
         for build in builds
