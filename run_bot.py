@@ -150,13 +150,19 @@ async def command_start_handler(message: Message, state: FSMContext) -> None:
             if not registration_complete:
                 return  # Прерываем (если регистрация не завершена)
 
-        favorite_office = await get_favorite_office(session, message)  # FIXME!!!
-        keyboard = await create_all_builds_keyboard(session,
-                                                    message=message)
+        # FIXME попробовать убрать favorite_office:
+        favorite_office = await get_favorite_office(session, message)
 
+        keyboard = await create_all_builds_keyboard(
+            session,
+            check_favorite=True,
+            message=message)
+
+        # FIXME если уберу favorite_office - надо переделать это:
         all_text = START_TEXT if favorite_office is None else (
             REPEAT_TEXT + START_TEXT[1:]
-        )  # FIXME!!!
+        )
+
         await message.answer(all_text, reply_markup=keyboard)
 
 
@@ -187,8 +193,10 @@ async def process_code(message: Message, state: FSMContext) -> None:
             logging.info(
                 f'{user_in_chat} успешно авторизовался и сохранен в базе'
             )
-            keyboard = (
-                await create_all_builds_keyboard(session, message=message)
+            keyboard = await create_all_builds_keyboard(
+                session,
+                check_favorite=True,
+                message=message
             )
             # Сбрасываем состояние
             await state.clear()
@@ -224,7 +232,9 @@ async def process_back_to_builds(callback_query: CallbackQuery):
     Обработка возврата к списку Зданий.
     """
     async with AsyncSessionLocal() as session:
-        keyboard = await create_all_builds_keyboard(session)
+        keyboard = await create_all_builds_keyboard(
+            session, check_favorite=True
+        )
         await callback_query.message.edit_text(
             START_AGAIN, reply_markup=keyboard
         )

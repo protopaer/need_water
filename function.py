@@ -137,17 +137,23 @@ async def start_registration(message: Message, state: FSMContext):
 
 
 async def get_favorite_office(session, message) -> Optional[Offices]:
-    """Возвращает Кабинет последнего Заказа, если он был."""
+    """
+    Возвращает Кабинет последнего Заказа (если Заказ для конкретного ТГ-А был).
+
+    Проверено!
+    """
     try:
         result = await session.execute(
             select(TgAccounts)
             .where(TgAccounts.account == str(message.chat.id))
-            .options(joinedload(TgAccounts.office))  # Жадная загрузка связанного офиса
+            .options(joinedload(TgAccounts.office))  # Жадная загрузка офиса
         )
 
         user_account = result.scalar_one_or_none()
 
-        # Возвращаем сразу связанный офис (если есть)
+        print(f'Проверяю тип {type(user_account.office)}')  # Проверка
+
+        # Возвращаем связанный офис (если есть):
         return user_account.office if user_account else None
 
     except Exception as e:

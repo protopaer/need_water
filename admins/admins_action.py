@@ -17,7 +17,7 @@ from function import (collect_orders_for_interval,
                       get_id_from_callback_query,
                       format_orders_message,
                       parse_hours_from_admin_message)
-from keyboards import create_builds_keyboard
+from keyboards import create_all_builds_keyboard
 from models import Offices, Builds
 
 
@@ -81,7 +81,7 @@ async def process_office_number(message: Message, state: FSMContext) -> None:
 
     await state.update_data(office_number=int(message.text))
     async with AsyncSessionLocal() as session:
-        keyboard = await create_builds_keyboard(session)
+        keyboard = await create_all_builds_keyboard(session)
         await message.answer('Выберите здание:', reply_markup=keyboard)
     await state.set_state(AddOfficeStates.waiting_for_build_id)
 
