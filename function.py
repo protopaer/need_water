@@ -240,35 +240,45 @@ async def collect_orders_for_interval(session, hour_find) -> Optional[list]:
     """
     Формируем список заявок по времени и выдает их список или ничего.
     """
-    result = await session.execute(
-        select(Order)
-        .where(
-            and_(
-                Order.order_time < time(hour_find, 0),
-                Order.in_archive == False
+    try:
+        result = await session.execute(
+            select(Order)
+            .where(
+                and_(
+                    Order.order_time < time(hour_find, 0),
+                    Order.in_archive == False
+                )
+            ).options(
+                joinedload(Order.office).joinedload(Offices.building)
             )
-        ).options(selectinload(Order.office).selectinload(Offices.build))
-    )
-    orders = result.scalars().all()
+        )
+        orders = result.scalars().all()
 
-    if not orders:
-        logging.info('Заявок пока нет')
+        if not orders:
+            logging.info('Заявок пока нет')
+            return None
+
+        buildings = defaultdict(list)
+
+        for order in orders:
+            # Проверка на существование связанных объектов
+            if order.office and order.office.building:
+                building_name = order.office.building.name.upper()
+                buildings[building_name].append(str(order.office))
+
+        formatted_orders = []
+        for building, offices in sorted(buildings.items()):
+            formatted_orders.append(('-' * 41) + '\n' + f'Здание: {building}')
+            formatted_orders.extend(f'🫙 {office}' for office in offices)
+
+        return formatted_orders
+
+    except Exception as e:
+        logging.error(
+            f'Ошибка при формировании списка заявок: {e}', exc_info=True
+        )
+        await session.rollback()
         return None
-
-    buildings = defaultdict(list)
-
-    for order in orders:
-        office = await session.get(Offices, order.office_id)
-        if office and office.build:
-            building_name = office.build.name.upper()
-            buildings[building_name].append(office.__repr__())
-
-    formatted_orders = []
-    for building, offices in sorted(buildings.items()):
-        formatted_orders.append(('-' * 41) + '\n' + f'Здание: {building}')
-        for office in offices:
-            formatted_orders.append(f'🫙 {office}')
-    return formatted_orders
 
 
 async def parse_hours_from_admin_message(message):

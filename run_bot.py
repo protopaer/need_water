@@ -356,20 +356,6 @@ async def setup_bot(token: str) -> Bot:
     return bot
 
 
-# async def clear_table(engine, model):
-#     """Асинхронная очистка указанной таблицы"""
-#     async with AsyncSessionLocal() as session:
-#         try:
-#             # Для SQLAlchemy 2.0+
-#             await session.execute(delete(model))
-#             await session.commit()
-#             logging.info(f"Таблица {model.__tablename__} успешно очищена")
-#         except Exception as e:
-#             await session.rollback()
-#             logging.error(f"Ошибка при очистке таблицы {model.__tablename__}: {e}")
-#             raise
-
-
 # Run the bot
 async def main() -> None:
 

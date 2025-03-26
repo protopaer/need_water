@@ -31,12 +31,12 @@ Base = declarative_base(cls=BaseModel)
 class Builds(Base):
     """Модель зданий."""
     name = Column(String(NAME_BUILD_COUNT), nullable=False)
-
+    
     offices = relationship(
         "Offices",
-        backref="building",
+        back_populates="building",  # Изменено с backref на back_populates
         cascade="all, delete-orphan"
-    )  # получаем build для конкретного office
+    )
 
 
 class Offices(Base):
@@ -44,10 +44,13 @@ class Offices(Base):
     abbr = Column(String(ABBR_OFFICE_COUNT), nullable=False)
     name = Column(String(NAME_OFFICE_COUNT), nullable=False)
     office_number = Column(Integer, nullable=True)
-    build_id = Column(
-        Integer, ForeignKey('builds.id'), nullable=False
-    )
-
+    build_id = Column(Integer, ForeignKey('builds.id'), nullable=False)
+    
+    # Отношения
+    building = relationship("Builds", back_populates="offices")
+    orders = relationship("Order", back_populates="office")
+    tg_accounts = relationship("TgAccounts", back_populates="office")  # Изменено имя
+    
     def __repr__(self):
         return f'{self.abbr} /каб. {self.office_number}/'
 
@@ -56,30 +59,27 @@ class TgAccounts(Base):
     """Модель аккаунтов в Telegram."""
     account = Column(String(TG_ACCOUNT_LEN), nullable=False, unique=True)
     blocked = Column(Boolean, default=False)
-    last_office = Column(
-        Integer, ForeignKey('offices.id'), default=None
+    last_office = Column(Integer, ForeignKey('offices.id'), default=None)
+    
+    # Отношения
+    office = relationship("Offices", back_populates="tg_accounts")  # Согласовано с изменением выше
+    
+    user_orders = relationship(  # Изменено имя с orders на user_orders
+        "Order",
+        back_populates="user_account",
+        cascade="all, delete-orphan",
+        passive_deletes=True
     )
-
-    # Отношения для доступа к связанным объектам
-    office = relationship(
-        'Offices',
-        backref='office_accounts'
-    )  # получаем все tgaccounts для конкретного office / зачем только?
-
-    orders = relationship(
-        'Order',
-        backref='account',
-        cascade='all, delete-orphan',  # Добавляем каскадное удаление
-        passive_deletes=True  # Опционально: оптимизация для удаления
-    )  # получаем все заявки конкретного tgaccount
 
 
 class Order(Base):
     """Модель Заказов воды."""
     office_id = Column(Integer, ForeignKey('offices.id'), nullable=False)
-    tg_account_id = Column(
-        Integer, ForeignKey('tgaccounts.id'), nullable=False
-    )
+    tg_account_id = Column(Integer, ForeignKey('tgaccounts.id'), nullable=False)
     order_date = Column(Date, nullable=False)
     order_time = Column(Time, nullable=False)
     in_archive = Column(Boolean, default=False)
+    
+    # Отношения
+    office = relationship("Offices", back_populates="orders")
+    user_account = relationship("TgAccounts", back_populates="user_orders")  # Согласовано с изменением выше
