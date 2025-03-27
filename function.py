@@ -10,7 +10,7 @@ from zoneinfo import ZoneInfo
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 from sqlalchemy import and_, select, update
-from sqlalchemy.orm import selectinload, joinedload
+from sqlalchemy.orm import joinedload
 
 from constants import (API_PHONEBOOK_AWAIT,
                        GET_LIST,

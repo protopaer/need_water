@@ -1,9 +1,7 @@
 import asyncio
-import json
 import logging
 import os
 from datetime import datetime
-# from typing import Optional
 
 from aiogram import Bot
 from aiogram.filters import Command
@@ -346,15 +344,15 @@ async def process_confirm_callback(callback_query: CallbackQuery) -> None:
         )
 
 
-@dp.callback_query(
-    lambda c: json.loads(c.data).get('action') == 'back_to_offices'
-)
+@dp.callback_query(lambda c: c.data.startswith('back_up_from_office_'))
 async def process_cancel_callback(callback_query: CallbackQuery):
     """
     Обработчик отмены выбора Кабинета и возврата клавиатуры Кабинетов Здания.
     """
     # Сбор данных:
-    office_id = json.loads(callback_query.data).get('office_id')
+    office_id = get_id_from_callback_query(
+        callback_query, 'back_up_from_office_')
+    # office_id = json.loads(callback_query.data).get('office_id')
 
     # Очистка:
     await remove_keyboard(callback_query.message)

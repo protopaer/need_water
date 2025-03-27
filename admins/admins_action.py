@@ -92,7 +92,7 @@ async def process_build_selection(
     """
     Обработка выбора Build при создании Office.
     """
-    await callback_query.answer()  # Обязательно! с чего вдруг?
+    # await callback_query.answer()  # Обязательно! с чего вдруг?
     await state.update_data(
         build_id=get_id_from_callback_query(callback_query, 'build_')
     )
