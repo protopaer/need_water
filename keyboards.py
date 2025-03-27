@@ -102,11 +102,7 @@ def confirm_keyboard(office_id: int) -> InlineKeyboardMarkup:
                 callback_data=f'confirm_{office_id}'
             ),
             InlineKeyboardButton(
-                text='❌ Нужен ещё шанс)',
-                # callback_data=json.dumps({
-                #     'action': 'back_to_offices',
-                #     'office_id': office_id
-                # })
+                text='❌ Ай, бл9lть!',
                 callback_data=f'back_up_from_office_{office_id}'
             )
         ]
