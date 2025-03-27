@@ -158,7 +158,8 @@ async def command_start_handler(message: Message, state: FSMContext) -> None:
         keyboard = await create_all_builds_keyboard(
             session,
             check_favorite=True,
-            message=message)
+            message=message,
+            path='building')
 
         # FIXME если уберу favorite_office - надо переделать это:
         all_text = START_TEXT if favorite_office is None else (
@@ -198,7 +199,8 @@ async def process_code(message: Message, state: FSMContext) -> None:
             keyboard = await create_all_builds_keyboard(
                 session,
                 check_favorite=True,
-                message=message
+                message=message,
+                path='building'
             )
             # Сбрасываем состояние
             await state.clear()
@@ -239,7 +241,8 @@ async def process_back_to_builds(callback_query: CallbackQuery):
         keyboard = await create_all_builds_keyboard(
             session,
             check_favorite=True,
-            message=callback_query.message
+            message=callback_query.message,
+            path='building'
         )
         await callback_query.message.edit_text(
             START_AGAIN_BUILD, reply_markup=keyboard

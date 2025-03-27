@@ -4,7 +4,7 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from constants import OFFICE_IN_LINE, REPEAT_TEXT, START_TEXT
+from constants import OFFICE_IN_LINE
 from function import get_favorite_office
 from models import Offices, Builds
 
@@ -15,10 +15,11 @@ async def create_all_builds_keyboard(
     **kwargs
 ) -> InlineKeyboardMarkup:
     """
-    Создает клавиатуру со списком зданий (может вернуть None).
+    Создает клавиатуру со списком зданий.
     """
 
     message = kwargs.get('message')  # <-- забыл зачем сделал так!
+    path = kwargs.get('path')
 
     # Создаем заготовку кнопок:
     buttons = []
@@ -44,13 +45,12 @@ async def create_all_builds_keyboard(
     builds = result.scalars().all()
 
     # Добавляем все здания в клавиатуру:
-    buttons.extend([
-        [InlineKeyboardButton(
-            text=build.name,
-            callback_data=f'building_{build.id}'  # как работает building_Х ?
-        )]
-        for build in builds
-    ])
+    for build in builds:
+        button = InlineKeyboardButton(
+                    callback_data=f'{path}_{build.id}',
+                    text=build.name
+                )
+        buttons.append([button])
 
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 

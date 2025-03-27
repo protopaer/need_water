@@ -80,20 +80,23 @@ async def process_office_number(message: Message, state: FSMContext) -> None:
 
     await state.update_data(office_number=int(message.text))
     async with AsyncSessionLocal() as session:
-        keyboard = await create_all_builds_keyboard(session)
+        keyboard = await create_all_builds_keyboard(session, path='build')
         await message.answer('Выберите здание:', reply_markup=keyboard)
-    await state.set_state(AddOfficeStates.waiting_for_build_id)
+        await state.set_state(AddOfficeStates.waiting_for_build_id)
 
 
-@router_add_office.callback_query(lambda c: c.data.startswith('build_'))
+@router_add_office.callback_query(AddOfficeStates.waiting_for_build_id)
 async def process_build_selection(
     callback_query: CallbackQuery, state: FSMContext
 ) -> None:
     """
     Обработка выбора Build при создании Office.
     """
+    await callback_query.answer()  # Обязательно! с чего вдруг?
+    await state.update_data(
+        build_id=get_id_from_callback_query(callback_query, 'build_')
+    )
     build_id = get_id_from_callback_query(callback_query, 'build_')
-    await state.update_data(build_id=build_id)
 
     # Получаем данные из состояния
     data = await state.get_data()
