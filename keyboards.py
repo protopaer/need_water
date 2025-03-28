@@ -93,8 +93,10 @@ async def create_all_offices_keyboard(session: AsyncSession, build_id: int):
 
 def confirm_keyboard(office_id: int) -> InlineKeyboardMarkup:
     """
-    Создаем клавиатуру для подтверждения выбора.
+    Создаем клавиатуру для подтверждения выбора Кабинета. (ниже дубль)
     """
+    # TODO сделать универсальную клавиатуру
+
     return InlineKeyboardMarkup(inline_keyboard=[
         [
             InlineKeyboardButton(
@@ -104,6 +106,24 @@ def confirm_keyboard(office_id: int) -> InlineKeyboardMarkup:
             InlineKeyboardButton(
                 text='❌ Отмена',
                 callback_data=f'back_up_from_office_{office_id}'
+            )
+        ]
+    ])
+
+
+def confirm_def_keyboard() -> InlineKeyboardMarkup:
+    """
+    Создаем абстрактную клавиатуру для подтверждения выбора.
+    """
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(
+                text='✅ Верно',
+                callback_data='save'
+            ),
+            InlineKeyboardButton(
+                text='❌ Отмена',
+                callback_data='delete'
             )
         ]
     ])

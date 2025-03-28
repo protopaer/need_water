@@ -17,7 +17,7 @@ from function import (collect_orders_for_interval,
                       get_id_from_callback_query,
                       format_orders_message,
                       parse_hours_from_admin_message)
-from keyboards import create_all_builds_keyboard
+from keyboards import create_all_builds_keyboard, confirm_def_keyboard
 from models import Offices, Builds
 
 
@@ -92,37 +92,86 @@ async def process_build_selection(
     """
     Обработка выбора Build при создании Office.
     """
-    # await callback_query.answer()  # Обязательно! с чего вдруг?
-    await state.update_data(
-        build_id=get_id_from_callback_query(callback_query, 'build_')
-    )
     build_id = get_id_from_callback_query(callback_query, 'build_')
+    await state.update_data(build_id=build_id)
 
     # Получаем данные из состояния
     data = await state.get_data()
 
     async with AsyncSessionLocal() as session:
-        # Создаем новый кабинет
-        new_office = Offices(
-            abbr=data['abbr'],
-            name=data['name'],
-            office_number=int(data['office_number']),
-            build_id=build_id
-        )
-        session.add(new_office)
-        await session.commit()
 
         # Получаем название здания по его ID
         build = await session.get(Builds, build_id)
         build_name = build.name if build else "Неизвестное здание"
+        office_abbr, office_name, office_number = (
+            data['abbr'], data['name'], int(data['office_number'])
+        )
 
-    await callback_query.message.answer(
-        f'✅ Кабинет «{new_office.name}» успешно добавлен!\n'
-        f'Аббревиатура: {new_office.abbr}\n'
-        f'Номер кабинета: {new_office.office_number}\n'
-        f'Здание: {build_name}'
-    )
-    await state.clear()  # Очищаем состояние
+        # Отправляем администратору данные для подтверждения
+        await callback_query.message.answer(
+            'Проверим:\n\n'
+            f'Номер кабинета: {office_number}\n'
+            f'Название кабинета: {office_name}\n'
+            f'Аббревиатура: {office_abbr}\n'
+            f'Здание: {build_name}',
+            reply_markup=confirm_def_keyboard()
+        )
+
+        # Переводим состояние в ожидание подтверждения
+        await state.set_state(AddOfficeStates.waiting_for_confirmation)
+        await state.update_data(
+            office_abbr=office_abbr,
+            office_name=office_name,
+            office_number=office_number,
+            build_id=build_id,
+            build_name=build_name
+        )
+
+        # Очищаем клавиатуру:
+        await callback_query.message.edit_reply_markup(reply_markup=None)
+
+
+@router_add_office.callback_query(AddOfficeStates.waiting_for_confirmation)
+async def process_confirmation(
+    callback_query: CallbackQuery, state: FSMContext
+) -> None:
+    """
+    Обработка подтверждения создания кабинета администратором.
+    """
+    data = await state.get_data()
+
+    if callback_query.data == 'save':
+        # Админ подтвердил - сохраняем в БД:
+        async with AsyncSessionLocal() as session:
+            try:
+                new_office = Offices(
+                    abbr=data['office_abbr'],
+                    name=data['office_name'],
+                    office_number=data['office_number'],
+                    build_id=data['build_id']
+                )
+                session.add(new_office)
+                await session.commit()
+
+                await callback_query.message.edit_text(
+                    f'✅ Кабинет «{new_office.name}» успешно добавлен!\n'
+                    f'Аббревиатура: {new_office.abbr}\n'
+                    f'Номер кабинета: {new_office.office_number}\n'
+                    f'Здание: {data["build_name"]}'
+                )
+            except Exception as e:
+                await session.rollback()
+                await callback_query.message.edit_text(
+                    f'❌ Ошибка при добавлении кабинета: {str(e)}'
+                )
+    elif callback_query.data == 'delete':
+        # Админ отменил - удаляем сообщение
+        await callback_query.message.edit_text(
+            '❌ Добавление кабинета отменено',
+            reply_markup=None
+        )
+
+    await state.clear()
 
 
 # -----------------------------------------------------------------------------

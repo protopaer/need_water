@@ -7,6 +7,7 @@ class AddOfficeStates(StatesGroup):
     waiting_for_name = State()  # Ожидание ввода названия
     waiting_for_office_number = State()  # Ожидание ввода номера кабинета
     waiting_for_build_id = State()  # Ожидание выбора здания
+    waiting_for_confirmation = State()  # Проверка введенных зданий
 
 
 # Состояния для FSM
