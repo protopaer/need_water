@@ -2,7 +2,7 @@ from pathlib import Path
 
 
 FIRST_SECTION = 10
-SECOND_SECTION = 15
+SECOND_SECTION = 13
 
 OUR_TIMEZONE = 'Asia/Yekaterinburg'
 

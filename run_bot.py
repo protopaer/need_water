@@ -69,7 +69,7 @@ async def send_interval_message(bot: Bot, hour: int) -> None:
     """
     async with AsyncSessionLocal() as session:
         today = datetime.now().isoweekday()  # Находит день недели для сегодня.
-        if today <= 5 and hour <= SECOND_SECTION:  # костыль
+        if today < 6 and hour <= SECOND_SECTION:  # костыль
             try:
                 # Получаем данные о заказах для указанного интервала
                 orders = await collect_orders_for_interval(session, hour)
@@ -269,7 +269,8 @@ async def process_callback_button(callback_query: CallbackQuery) -> None:
 
         # Если найден - отправляем запрос на подтверждение:
         await callback_query.message.answer(
-            f'Выбран кабинет {str(office.abbr)}. Всё верно?',
+            f'Выбран кабинет:\n\n{str(office.abbr)} '
+            f'\n{str(office.name)}\n\nВсё верно?',
             reply_markup=confirm_keyboard(office_id)
         )
         logging.info(f'{user_in_chat} нажал кнопку кабинета {office}.')
@@ -333,13 +334,13 @@ async def process_confirm_callback(callback_query: CallbackQuery) -> None:
             f'{user_in_chat} создал заявку {new_order_id} для {office}'
         )
 
-        order_in_time = get_slot_order(localized_time)  # Ближайшая доставка.
+        emoji, order_in_time = get_slot_order(localized_time)  # Ближ доставка.
 
         # Отправляем подтверждение пользователю
         await callback_query.message.answer(
             f'✅ Заказ воды №{new_order_id} создан.\n\n'
             f'Место: {office.abbr}\n'
-            f'Доставка: {order_in_time}!\n\n'
+            f'Доставка: {emoji} {order_in_time}!\n\n'
             'Ожидайте…'
         )
 

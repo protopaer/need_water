@@ -35,13 +35,15 @@ def get_slot_order(localized_time):
     Определяем время обработки заказа для подготовки ответа Пользователю.
     """
     order_time = localized_time.time()
-
+    first = '🕙'
+    second = '🕐'
+    tomorrow = '⌛'
     if order_time < time(FIRST_SECTION, 0):
-        return f'в {FIRST_SECTION} часов'
+        return (first, f'в {FIRST_SECTION} часов')
     elif time(FIRST_SECTION, 0) <= order_time < time(SECOND_SECTION, 0):
-        return f'в {SECOND_SECTION} часов'
+        return (second, f'в {SECOND_SECTION} часов')
     else:
-        return f'на следующий рабочий день в {FIRST_SECTION} часов'
+        return (tomorrow, f'на следующий рабочий день в {FIRST_SECTION} часов')
 
 
 def format_orders_message(hour: int, orders: Optional[list]) -> str:

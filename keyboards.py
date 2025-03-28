@@ -28,7 +28,7 @@ async def create_all_builds_keyboard(
             # Добавляем избранный кабинет (если есть) в клавиатуру:
             buttons.append([
                 InlineKeyboardButton(
-                    text=f'Повторить: ⭐ {favorite_office.abbr}',
+                    text=f'⭐ {favorite_office.abbr} [ повторить ]',
                     callback_data=f'button{favorite_office.id}'
                 )
             ])
