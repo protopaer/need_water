@@ -15,6 +15,7 @@ from sqlalchemy.orm import joinedload
 from constants import (API_PHONEBOOK_AWAIT,
                        GET_LIST,
                        FIRST_SECTION,
+                       GIVE_ME_ADDRESS_CODE,
                        OUR_TIMEZONE,
                        SECOND_SECTION)
 from models import Offices, Order, TgAccounts
@@ -111,7 +112,7 @@ async def generate_code_for_registration_and_waiting_answer(
                 logging.info(f'{user_in_chat} получил код {code}')
                 # Сохраняем код в состоянии
                 await state.update_data(code=code)
-                await message.answer('Введите код из системы:')
+                await message.answer(GIVE_ME_ADDRESS_CODE)
                 await state.set_state(RegistrationStates.waiting_for_code)
             else:
                 await message.answer('Ошибка получения кода')

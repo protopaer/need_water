@@ -28,5 +28,9 @@ OFFICE_IN_LINE = 3
 START_TEXT = 'Начнём с выбора здания (локации):'
 START_AGAIN_BUILD = 'Ничего страшного, надо решиться и выбрать здание (локацию):'
 START_AGAIN_OFFICE = 'Нажмёте на другой кабинет?'
-REPEAT_TEXT = 'Повторить ⭐ заказ или н'
-REGISTRATION_DONE = 'Вот и вся регистрация! Easy 😎'
+REPEAT_TEXT = '⭐ - повторить заказ\nили н'
+REGISTRATION_DONE = 'Вот и вся регистрация! 😎'
+GIVE_ME_ADDRESS_CODE = (
+    'Зайдите с рабочего ПК на сайт http://phonebook.atu.mmk.ru/#/NumVer/\n'
+    'Там появился код авторизации, который нужно отправить мне'
+)

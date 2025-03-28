@@ -28,7 +28,7 @@ async def create_all_builds_keyboard(
             # Добавляем избранный кабинет (если есть) в клавиатуру:
             buttons.append([
                 InlineKeyboardButton(
-                    text=f'⭐ {favorite_office.abbr}',
+                    text=f'Повторить: ⭐ {favorite_office.abbr}',
                     callback_data=f'button{favorite_office.id}'
                 )
             ])
@@ -98,11 +98,11 @@ def confirm_keyboard(office_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [
             InlineKeyboardButton(
-                text='✅ Верно!',
+                text='✅ Верно',
                 callback_data=f'confirm_{office_id}'
             ),
             InlineKeyboardButton(
-                text='❌ Ай, бл9lть!',
+                text='❌ Отмена',
                 callback_data=f'back_up_from_office_{office_id}'
             )
         ]
