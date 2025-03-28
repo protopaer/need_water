@@ -171,6 +171,33 @@ async def command_start_handler(message: Message, state: FSMContext) -> None:
         await message.answer(all_text, reply_markup=keyboard)
 
 
+@dp.message(Command('rules'))
+async def command_rules_handler(message: Message) -> None:
+    """
+    Страница с указанием правил.
+    """
+    rules_text = (
+        '<b>Здравствуйте!</b>\n\n'
+        'Для работы сервиса определены следующие правила:'
+        '1. Каждый кабинет может заказать только ОДИН бутыль в день!\n'
+        '2. Каждый человек может заказать только ОДИН бутыль в день!\n'
+        f'3. Доставка осуществляется в {FIRST_SECTION} и {SECOND_SECTION} '
+        'часов каждый рабочий день.'
+        f'4. Если заказ воды сделан после {SECOND_SECTION} часов - доставка '
+        f'будет <b>АВТОМАТИЧЕСКИ ПЕРЕНЕСЕНА</b> на {FIRST_SECTION} часов '
+        'следующего рабочего дня.'
+        '5. После подачи заявки выбранный Вами кабинет получает статус '
+        '«Избранное» и доступен при старте новой сессии (обращения).'
+        '6. Подача заявок без необходимости может привести к блокировке Вашей '
+        'учётной записи.'
+        '7. Процедура регистрации выполняется для каждого Telegram-аккаунта '
+        'один раз.'
+        '\nВаши замечания и пожелания принимаются в ЛС @mx_style74'
+    )
+
+    await message.answer(rules_text, parse_mode="HTML")
+
+
 @dp.message(RegistrationStates.waiting_for_code)
 async def process_code(message: Message, state: FSMContext) -> None:
     """
