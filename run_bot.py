@@ -32,6 +32,7 @@ from function import (add_orgers_in_archive,
                       get_slot_order,
                       get_favorite_office,
                       return_office,
+                      send_email,
                       start_registration)
 from keyboards import (create_all_builds_keyboard,
                        create_all_offices_keyboard,
@@ -75,7 +76,10 @@ async def send_interval_message(bot: Bot, hour: int) -> None:
                 orders = await collect_orders_for_interval(session, hour)
                 message_text = format_orders_message(hour, orders)
 
-                # Отправляем сообщения администраторам:
+                # Отправка email:
+                await send_email(message_text)
+
+                # Отправляем сообщения в ТГ-аккаунты администраторам:
                 admins_id = list(
                     map(int, str(os.getenv('admin_id')).split(','))
                 )

@@ -1,14 +1,18 @@
+import asyncio
 import logging
 import os
 import re
 from aiohttp import ClientSession, ClientError
 from collections import defaultdict
 from datetime import time
+from email.message import EmailMessage
 from typing import Optional
 from zoneinfo import ZoneInfo
 
+import aiosmtplib
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
+from dotenv import load_dotenv
 from sqlalchemy import and_, select, update
 from sqlalchemy.orm import joinedload
 
@@ -20,6 +24,9 @@ from constants import (API_PHONEBOOK_AWAIT,
                        SECOND_SECTION)
 from models import Offices, Order, TgAccounts
 from users.users_fcm import RegistrationStates
+
+
+load_dotenv()
 
 
 def get_datetime_in_timezone_for_message(message_callback):
@@ -320,3 +327,70 @@ async def add_orgers_in_archive(session, hour):
 
     await session.execute(orders_in_archive)
     await session.commit()
+
+
+async def send_email(message):
+    """
+    Выполнение рассылки (отправка писем администраторам).
+    """
+    # Загрузка из .env:
+    smtp_mmk_server = str(os.getenv('smtp_mmk_server'))
+    smtp_mmk_port = int(os.getenv('smtp_mmk_port'))
+
+    sender_email = str(os.getenv('sender'))
+    sender_password = str(os.getenv('pass_water'))
+    subject = 'Доставка воды'
+
+    # Получение списка адресатов:
+    recipient_email = str(os.getenv('recipient_address'))
+    recipient_stack = recipient_email.split(',')
+
+    # Создаем задачи для каждого получателя
+    tasks = []
+    for email in recipient_stack:
+        try:
+            msg = EmailMessage()
+            msg['From'] = sender_email
+            msg['To'] = email
+            msg['Subject'] = subject
+            msg.set_content(message)
+
+            # Создаем задачу для отправки
+            task = asyncio.create_task(
+                send_single_email(
+                    msg=msg,
+                    sender_email=sender_email,
+                    password=sender_password,
+                    hostname=smtp_mmk_server,
+                    port=smtp_mmk_port,
+                    recipient=email
+                )
+            )
+            tasks.append(task)
+        except Exception as e:
+            logging.error(f'Ошибка при подготовке письма для {email}: {e}')
+
+    # Ожидаем завершения всех задач:
+    await asyncio.gather(*tasks, return_exceptions=True)
+
+
+async def send_single_email(
+        msg, sender_email, password, hostname, port, recipient
+):
+    """
+    Отправка письма администратору.
+    """
+    try:
+        await aiosmtplib.send(
+            msg,
+            sender=sender_email,
+            hostname=hostname,
+            port=port,
+            username=sender_email,
+            password=password,
+            recipients=[recipient],
+            use_tls=True  # Использование шифрование
+        )
+        logging.info(f'Письмо {recipient} успешно отправлено!')
+    except Exception as e:
+        logging.error(f'Ошибка при отправке письма {recipient}: {e}')
