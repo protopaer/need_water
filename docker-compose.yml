@@ -6,10 +6,8 @@ services:
       - .env
     build: .
     volumes:
-      - sqlite_data:/app  # Монтируем том для SQLite
-    # environment:
-    #   - SQLITE_DB_PATH=/app/data/water.db  # Путь к SQLite-файлу
+      - ./data:/app/data  # Используем bind mount вместо volume
     restart: unless-stopped
 
-volumes:
-  sqlite_data:  # Создаем том для SQLite
+# volumes:
+#   sqlite_data:  # Создаем том для SQLite
