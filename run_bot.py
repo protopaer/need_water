@@ -10,7 +10,7 @@ from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy import insert, update
 
 from bot_logging import configure_logging
-from constants import (FIRST_SECTION,
+from constants import (AWAIT_DISABLE_NOTIFICATION, FIRST_SECTION,
                        OUR_TIMEZONE,
                        REGISTRATION_DONE,
                        REPEAT_TEXT,
@@ -375,10 +375,13 @@ async def process_confirm_callback(callback_query: CallbackQuery) -> None:
             f'Доставка: {emoji} {order_in_time}!\n\n'
             'Ожидайте…'
         )
-        await asyncio.sleep(20)
+
+        # Встать на паузу и отправить инструкцию, как сделать новую заявку:
+        await asyncio.sleep(AWAIT_DISABLE_NOTIFICATION)
         await callback_query.message.answer(
-            'Подать новую заявку:\n'
-            '/start или кнопка «🟰Меню» слева от строки ввода сообщения',
+            'Как подать новую заявку:\n'
+            ' - /start\n'
+            ' - кнопка «🟰Меню» слева от строки ввода сообщения',
             disable_notification=True
         )
 

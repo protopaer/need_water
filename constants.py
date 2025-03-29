@@ -15,6 +15,7 @@ ADD_OFFICE = 'add_office'
 ADD_BUILD = 'add_build'
 
 API_PHONEBOOK_AWAIT = 10
+AWAIT_DISABLE_NOTIFICATION = 60
 
 # Настройка логгирования:
 BASE_DIR = Path(__file__).parent
