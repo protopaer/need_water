@@ -4,9 +4,9 @@ import os
 import re
 from aiohttp import ClientSession, ClientError
 from collections import defaultdict
-from datetime import time
+from datetime import time, datetime
 from email.message import EmailMessage
-from typing import Optional
+from typing import Optional, Literal, Tuple
 from zoneinfo import ZoneInfo
 
 import aiosmtplib
@@ -19,9 +19,12 @@ from sqlalchemy.orm import joinedload
 from constants import (API_PHONEBOOK_AWAIT,
                        GET_LIST,
                        FIRST_SECTION,
+                       FIRST_SECTION_EMOJI,
                        GIVE_ME_ADDRESS_CODE,
                        OUR_TIMEZONE,
-                       SECOND_SECTION)
+                       SECOND_SECTION,
+                       SECOND_SECTION_EMOJI,
+                       NEXT_WEEKDAY_EMOJI)
 from models import Offices, Order, TgAccounts
 from users.users_fcm import RegistrationStates
 
@@ -37,20 +40,59 @@ def get_datetime_in_timezone_for_message(message_callback):
     return message_date.astimezone(ZoneInfo(OUR_TIMEZONE))
 
 
-def get_slot_order(localized_time):
+def get_workday_or_not(hour=None, last_delivery=SECOND_SECTION) -> bool:
     """
-    Определяем время обработки заказа для подготовки ответа Пользователю.
+    Проверяет, рабочий ли сегодня день и время (если передано).
+
+    Вернёт True если:
+        - (нет hour) сегодня рабочий день
+        - (указан hour) сегодня рабочий день и возможна доставка
+    """
+    today = datetime.now().isoweekday()  # 1-7 (пн-вс)
+    is_workday = today < 6  # Пн-Пт
+
+    if not is_workday:
+        return False  # False если сегодня выходной
+
+    if hour is None:
+        return True  # True если сегодня будни, а время не учитывается
+
+    return hour < last_delivery  # True если будни и впереди есть доставка.
+
+
+def get_slot_order(localized_time: datetime):
+    """
+    Определяет время обработки заказа для подготовки ответа пользователю.
+
+    Args:
+        localized_time: Время заказа в виде datetime объекта.
+
+    Returns:
+        Кортеж из двух элементов:
+        - emoji (📅, 🕙 или 🕐)
+        - текст с описанием времени доставки
+
+    Примеры возвращаемых значений:
+        ('📅', 'на следующий рабочий день в 10 часов')
+        ('🕙', 'в 10 часов')
+        ('🕐', 'в 13 часов')
     """
     order_time = localized_time.time()
-    first = '🕙'
-    second = '🕐'
-    tomorrow = '⌛'
-    if order_time < time(FIRST_SECTION, 0):
-        return (first, f'в {FIRST_SECTION} часов')
-    elif time(FIRST_SECTION, 0) <= order_time < time(SECOND_SECTION, 0):
-        return (second, f'в {SECOND_SECTION} часов')
-    else:
-        return (tomorrow, f'на следующий рабочий день в {FIRST_SECTION} часов')
+    SECTION_MINUTES = 0
+
+    if not get_workday_or_not(order_time.hour):
+        return (
+            NEXT_WEEKDAY_EMOJI,
+            f'на следующий рабочий день в {FIRST_SECTION} часов'
+        )
+    if order_time < time(FIRST_SECTION, SECTION_MINUTES):
+        return (FIRST_SECTION_EMOJI, f'в {FIRST_SECTION} часов')
+    elif (
+        time(FIRST_SECTION, SECTION_MINUTES)
+        <= order_time
+        < time(SECOND_SECTION, SECTION_MINUTES)
+    ):
+        return (SECOND_SECTION_EMOJI, f'в {SECOND_SECTION} часов')
 
 
 def format_orders_message(hour: int, orders: Optional[list]) -> str:

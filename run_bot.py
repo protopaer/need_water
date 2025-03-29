@@ -31,6 +31,7 @@ from function import (add_orgers_in_archive,
                       get_id_from_callback_query,
                       get_slot_order,
                       get_favorite_office,
+                      get_workday_or_not,
                       return_office,
                       send_email,
                       start_registration)
@@ -69,8 +70,7 @@ async def send_interval_message(bot: Bot, hour: int) -> None:
     Отправляет сообщения администраторам для указанного интервала.
     """
     async with AsyncSessionLocal() as session:
-        today = datetime.now().isoweekday()  # Находит день недели для сегодня.
-        if today < 6 and hour <= SECOND_SECTION:  # костыль
+        if get_workday_or_not():
             try:
                 # Получаем данные о заказах для указанного интервала
                 orders = await collect_orders_for_interval(session, hour)
@@ -184,7 +184,7 @@ async def command_rules_handler(message: Message) -> None:
         f'3. Доставка осуществляется в {FIRST_SECTION} и {SECOND_SECTION} '
         'часов каждый рабочий день.\n\n'
         f'4. Если заказ воды сделан после {SECOND_SECTION} часов - доставка '
-        f'будет <b>АВТОМАТИЧЕСКИ ПЕРЕНЕСЕНА</b> на {FIRST_SECTION} часов '
+        f'будет <b>АВТОМАТИЧЕСКИ</b> перенесена на {FIRST_SECTION} часов '
         'следующего рабочего дня.\n\n'
         '5. После подачи заявки выбранный Вами кабинет получает статус '
         '«Избранное» и доступен при старте новой сессии (обращения).\n\n'
