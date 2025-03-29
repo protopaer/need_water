@@ -6,8 +6,8 @@ services:
       - .env
     build: .
     volumes:
-      - ./data:/app/data  # Используем bind mount вместо volume
+      - sqlite_data:/app/data
     restart: unless-stopped
 
-# volumes:
-#   sqlite_data:  # Создаем том для SQLite
+volumes:
+  sqlite_data:  # Создаем том для SQLite
