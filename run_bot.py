@@ -1,7 +1,6 @@
 import asyncio
 import logging
 import os
-from datetime import datetime
 
 from aiogram import Bot
 from aiogram.filters import Command
@@ -16,6 +15,7 @@ from constants import (FIRST_SECTION,
                        REGISTRATION_DONE,
                        REPEAT_TEXT,
                        SECOND_SECTION,
+                       SECTION_MINUTES,
                        START_AGAIN_BUILD,
                        START_AGAIN_OFFICE,
                        START_TEXT)
@@ -51,13 +51,17 @@ async def on_startup(bot: Bot):
     """
     scheduler.add_job(
         send_interval_message,
-        CronTrigger(hour=FIRST_SECTION, minute=0, timezone=OUR_TIMEZONE),
+        CronTrigger(
+            hour=FIRST_SECTION, minute=SECTION_MINUTES, timezone=OUR_TIMEZONE
+        ),
         args=[bot, FIRST_SECTION],
         id='first_section'
     )
     scheduler.add_job(
         send_interval_message,
-        CronTrigger(hour=SECOND_SECTION, minute=0, timezone=OUR_TIMEZONE),
+        CronTrigger(
+            hour=SECOND_SECTION, minute=SECTION_MINUTES, timezone=OUR_TIMEZONE
+        ),
         args=[bot, SECOND_SECTION],
         id='second_section'
     )
@@ -99,9 +103,6 @@ async def send_interval_message(bot: Bot, hour: int) -> None:
                 )
                 await session.rollback()
                 logging.info('Сессия откатилась назад')
-
-        # TODO может быть здесь надо проставить сценарий для вечера пятницы
-        # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 
 async def scheduled_message(bot: Bot):

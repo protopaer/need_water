@@ -6,7 +6,7 @@ from aiohttp import ClientSession, ClientError
 from collections import defaultdict
 from datetime import time, datetime
 from email.message import EmailMessage
-from typing import Optional, Literal, Tuple
+from typing import Optional
 from zoneinfo import ZoneInfo
 
 import aiosmtplib
@@ -24,7 +24,8 @@ from constants import (API_PHONEBOOK_AWAIT,
                        OUR_TIMEZONE,
                        SECOND_SECTION,
                        SECOND_SECTION_EMOJI,
-                       NEXT_WEEKDAY_EMOJI)
+                       NEXT_WEEKDAY_EMOJI,
+                       SECTION_MINUTES)
 from models import Offices, Order, TgAccounts
 from users.users_fcm import RegistrationStates
 
@@ -78,7 +79,6 @@ def get_slot_order(localized_time: datetime):
         ('🕐', 'в 13 часов')
     """
     order_time = localized_time.time()
-    SECTION_MINUTES = 0
 
     if not get_workday_or_not(order_time.hour):
         return (
