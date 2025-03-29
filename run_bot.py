@@ -373,7 +373,8 @@ async def process_confirm_callback(callback_query: CallbackQuery) -> None:
             f'✅ Заказ воды №{new_order_id} создан.\n\n'
             f'Место: {office.abbr}\n'
             f'Доставка: {emoji} {order_in_time}!\n\n'
-            'Ожидайте…'
+            'Ожидайте…\n\n'
+            'Новая заявка /start или кнопка 🟰 слева от строки ввода'
         )
 
 
