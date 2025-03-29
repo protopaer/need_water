@@ -31,7 +31,7 @@ Base = declarative_base(cls=BaseModel)
 class Builds(Base):
     """Модель зданий."""
     name = Column(String(NAME_BUILD_COUNT), nullable=False)
-    
+
     offices = relationship(
         "Offices",
         back_populates="building",  # Изменено с backref на back_populates
@@ -48,12 +48,12 @@ class Offices(Base):
     name = Column(String(NAME_OFFICE_COUNT), nullable=False)
     office_number = Column(Integer, nullable=True)
     build_id = Column(Integer, ForeignKey('builds.id'), nullable=False)
-    
+
     # Отношения
     building = relationship("Builds", back_populates="offices")
     orders = relationship("Order", back_populates="office")
     tg_accounts = relationship("TgAccounts", back_populates="office")  # Изменено имя
-    
+
     def __repr__(self):
         return f'{self.abbr} /каб. {self.office_number}/'
 
@@ -63,10 +63,10 @@ class TgAccounts(Base):
     account = Column(String(TG_ACCOUNT_LEN), nullable=False, unique=True)
     blocked = Column(Boolean, default=False)
     last_office = Column(Integer, ForeignKey('offices.id'), default=None)
-    
+
     # Отношения
     office = relationship("Offices", back_populates="tg_accounts")  # Согласовано с изменением выше
-    
+
     user_orders = relationship(  # Изменено имя с orders на user_orders
         "Order",
         back_populates="user_account",
@@ -82,7 +82,7 @@ class Order(Base):
     order_date = Column(Date, nullable=False)
     order_time = Column(Time, nullable=False)
     in_archive = Column(Boolean, default=False)
-    
+
     # Отношения
     office = relationship("Offices", back_populates="orders")
     user_account = relationship("TgAccounts", back_populates="user_orders")  # Согласовано с изменением выше

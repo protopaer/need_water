@@ -9,11 +9,14 @@ from aiogram.types import Message, CallbackQuery
 from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy import insert, update
 
+from admins.admins_action import url_for_add_office, url_for_get_list
+from admins.admins_loading_dataset import all_upload
 from bot_logging import configure_logging
+from config import AsyncSessionLocal, dp, engine, scheduler
 from constants import (AWAIT_DISABLE_NOTIFICATION, FIRST_SECTION,
                        OUR_TIMEZONE,
                        REGISTRATION_DONE,
-                       REPEAT_TEXT,
+                       REPEAT_TEXT, RULES,
                        SECOND_SECTION,
                        SECTION_MINUTES,
                        START_AGAIN_BUILD,
@@ -39,9 +42,7 @@ from keyboards import (create_all_builds_keyboard,
                        create_all_offices_keyboard,
                        confirm_keyboard,
                        remove_keyboard)
-from models import Offices, TgAccounts, Order, Base
-from config import AsyncSessionLocal, dp, engine, scheduler
-from admins.admins_action import url_for_add_office, url_for_get_list
+from models import Base, Offices, Order, TgAccounts
 from users.users_fcm import RegistrationStates
 
 
@@ -175,28 +176,9 @@ async def command_start_handler(message: Message, state: FSMContext) -> None:
 @dp.message(Command('rules'))
 async def command_rules_handler(message: Message) -> None:
     """
-    Страница с указанием правил.
+    Страница с указанием правил пользования сервисом.
     """
-    rules_text = (
-        '<b>Здравствуйте!</b>\n\n'
-        '<b>Для работы сервиса определены следующие правила:</b>\n\n'
-        '1. Каждый кабинет может заказать только ОДИН бутыль в день!\n\n'
-        '2. Каждый человек может заказать только ОДИН бутыль в день!\n\n'
-        f'3. Доставка осуществляется в {FIRST_SECTION} и {SECOND_SECTION} '
-        'часов каждый рабочий день.\n\n'
-        f'4. Если заказ воды сделан после {SECOND_SECTION} часов - доставка '
-        f'будет <b>АВТОМАТИЧЕСКИ</b> перенесена на {FIRST_SECTION} часов '
-        'следующего рабочего дня.\n\n'
-        '5. После подачи заявки выбранный Вами кабинет получает статус '
-        '«Избранное» и доступен при старте новой сессии (обращения).\n\n'
-        '6. Подача заявок без необходимости может привести к блокировке Вашей '
-        'учётной записи в нашем сервисе.\n\n'
-        '7. Процедура регистрации выполняется для каждого Telegram-аккаунта '
-        'один раз.\n\n\n'
-        'Замечания и пожелания в ЛС @mx_style74'
-    )
-
-    await message.answer(rules_text, parse_mode="HTML")
+    await message.answer(RULES, parse_mode="HTML")
 
 
 @dp.message(RegistrationStates.waiting_for_code)
@@ -436,6 +418,10 @@ async def main() -> None:
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
         logging.info('Движок создан, база подключена')
+
+        # Загрузка дб:
+        if bool(os.getenv('create_db')):
+            await all_upload()
 
     token = str(os.getenv('bot_token'))
     bot = await setup_bot(token)
