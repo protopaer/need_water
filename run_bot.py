@@ -378,7 +378,7 @@ async def process_confirm_callback(callback_query: CallbackQuery) -> None:
         await asyncio.sleep(20)
         await callback_query.message.answer(
             'Подать новую заявку:\n'
-            '/start или кнопка «🟰Меню» слева от строки ввода',
+            '/start или кнопка «🟰Меню» слева от строки ввода сообщения',
             disable_notification=True
         )
 
