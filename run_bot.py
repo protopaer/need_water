@@ -373,8 +373,13 @@ async def process_confirm_callback(callback_query: CallbackQuery) -> None:
             f'✅ Заказ воды №{new_order_id} создан.\n\n'
             f'Место: {office.abbr}\n'
             f'Доставка: {emoji} {order_in_time}!\n\n'
-            'Ожидайте…\n\n'
-            'Новая заявка /start или кнопка 🟰 слева от строки ввода'
+            'Ожидайте…'
+        )
+        await asyncio.sleep(10)
+        await callback_query.message.answer(
+            'Подать новую заявку:\n'
+            '/start или кнопка «🟰Меню» слева от строки ввода',
+            disable_notification=True
         )
 
 
