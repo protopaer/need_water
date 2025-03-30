@@ -6,6 +6,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, CallbackQuery
 
 from admins.admins_fcm import AddOfficeStates, AddBuildStates
+from admins.admins_loading_dataset import create_office_object
 from config import AsyncSessionLocal, dp
 from constants import (ABBR_OFFICE_COUNT,
                        ADD_BUILD,
@@ -18,7 +19,7 @@ from function import (collect_orders_for_interval,
                       format_orders_message,
                       parse_hours_from_admin_message)
 from keyboards import create_all_builds_keyboard, confirm_def_keyboard
-from models import Offices, Builds
+from models import Builds
 
 
 # Создание роутеров для команд администратора и регистрация в диспетчере:
@@ -144,12 +145,13 @@ async def process_confirmation(
         # Админ подтвердил - сохраняем в БД:
         async with AsyncSessionLocal() as session:
             try:
-                new_office = Offices(
-                    abbr=data['office_abbr'],
-                    name=data['office_name'],
-                    office_number=data['office_number'],
-                    build_id=data['build_id']
-                )
+                # new_office = Offices(
+                #     abbr=data['office_abbr'],
+                #     name=data['office_name'],
+                #     office_number=data['office_number'],
+                #     build_id=data['build_id']
+                # )
+                new_office = create_office_object(data)
                 session.add(new_office)
                 await session.commit()
 

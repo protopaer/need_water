@@ -4,21 +4,21 @@ from config import AsyncSessionLocal
 from models import Builds, Offices
 
 
-def return_office(data) -> Offices:
+def create_office_object(data) -> Offices:
     """Создает объект Кабинета."""
     return Offices(
-        id=int(data['id']),
-        abbr=data['abbr'],
-        name=data['name'],
+        # id=int(data['id']),
+        abbr=data['office_abbr'],
+        name=data['office_name'],
         office_number=int(data['office_number']),
-        build_id=int(data['building_id'])
+        build_id=int(data['build_id'])
     )
 
 
-def return_build(data) -> Builds:
+def create_build_object(data) -> Builds:
     """Создает объект Здания."""
     return Builds(
-        id=int(data['id']),
+        # id=int(data['id']),
         name=data['name'],
     )
 
@@ -30,10 +30,10 @@ async def load_object_in_db(object, dataname):
     async with AsyncSessionLocal() as session:
         try:
             if dataname == 'office':
-                object = return_office(object)
+                object = create_office_object(object)
                 text_for_log = 'Кабинета'
             elif dataname == 'build':
-                object = return_build(object)
+                object = create_build_object(object)
                 text_for_log = 'Здания'
             else:
                 logging.error('Неизвестный объект')
