@@ -13,7 +13,7 @@ import aiosmtplib
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 from dotenv import load_dotenv
-from sqlalchemy import and_, select, update
+from sqlalchemy import and_, or_, select, update
 from sqlalchemy.orm import joinedload
 
 from constants import (API_PHONEBOOK_AWAIT,
@@ -241,11 +241,17 @@ async def check_order_today(session, office, callback_query):
     today = localized_time.date()  # Извлекаем дату
     chat_user_id = create_user_attrs(callback_query.message)
 
-    # Как правильно получать записи из БД в асинхроне?!!!!!!!!!!!!!!!!!!!!!!!!!! Таких у меня дофига!
+    # Как правильно получать записи из БД в асинхроне?!?!?! Таких у меня дофига!
     order = select(Order).where(
         and_(
             Order.office_id == office.id,
-            Order.order_date == today
+            or_(
+                Order.in_archive == False,  # <-- проверяет выходный
+                and_(
+                    Order.order_date == today,  # <-- проверяет сегодня
+                    Order.in_archive == True
+                )
+            )
         )
     )
     result = await session.execute(order)
@@ -254,7 +260,7 @@ async def check_order_today(session, office, callback_query):
     if existing_order:  # Если заявка уже существует, отправляем сообщение
         await callback_query.message.answer(
             '❌ Отказано!\n'
-            f'Заявка для кабинета {office.abbr} на сегодня уже есть.'
+            f'Активная заявка для кабинета {office.abbr} уже есть.'
         )
         logging.info(
             f'{chat_user_id} пытался создать заявку для {office}'
