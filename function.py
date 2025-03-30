@@ -262,6 +262,7 @@ async def check_order_today(session, office, callback_query):
             '❌ Отказано!\n'
             f'Активная заявка для кабинета {office.abbr} уже есть.'
         )
+        # TODO: добавить кнопку назад к выбору кабинета (подумать, надо ли)!!!!!
         logging.info(
             f'{chat_user_id} пытался создать заявку для {office}'
             ', а она уже есть'

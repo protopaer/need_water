@@ -170,6 +170,14 @@ async def command_start_handler(message: Message, state: FSMContext) -> None:
             REPEAT_TEXT + START_TEXT[1:]
         )
 
+        # #####################################################################
+        # TODO
+        # Тестировать:
+        # это должно удалить старую клавиатуру в случае,
+        # если Пользователь нажал «старт» где-то в процессе работы:
+        await remove_keyboard(message)
+        # #####################################################################
+
         await message.answer(all_text, reply_markup=keyboard)
 
 
