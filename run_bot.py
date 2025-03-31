@@ -91,7 +91,7 @@ async def send_interval_message(bot: Bot, hour: int) -> None:
                     return
 
                 # Отправляем сообщения в ТГ-аккаунты админам:
-                admins_id = list(map(int, str(admins_in_env.split(','))))
+                admins_id = list(map(int, admins_in_env.split(',')))
                 for admin_id in admins_id:
                     await bot.send_message(admin_id, message_text)
                     logging.info(

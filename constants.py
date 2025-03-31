@@ -1,7 +1,7 @@
 from pathlib import Path
 
 # Настройка графика работы:
-FIRST_SECTION = 11
+FIRST_SECTION = 12
 FIRST_SECTION_EMOJI = '🕙'
 SECOND_SECTION = 13
 SECOND_SECTION_EMOJI = '🕐'
