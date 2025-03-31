@@ -61,6 +61,18 @@ def get_workday_or_not(hour=None, last_delivery=SECOND_SECTION) -> bool:
     return hour < last_delivery  # True если будни и впереди есть доставка.
 
 
+def get_admins_account() -> Optional[list]:
+    """
+    Проверка наличия списка ТГ-аккаунтов админов в окружении.
+    """
+    admins_in_env = os.getenv('admin_id')
+    if not admins_in_env:
+        return None
+    admins_id = list(map(int, admins_in_env.split(',')))
+    logging.info('Составлен список админов из env.')
+    return admins_id
+
+
 def get_slot_order(localized_time: datetime):
     """
     Определяет время обработки заказа для подготовки ответа пользователю.

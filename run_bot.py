@@ -30,6 +30,7 @@ from function import (add_orgers_in_archive,
                       collect_orders_for_interval,
                       create_user_attrs,
                       format_orders_message,
+                      get_admins_account,
                       get_datetime_in_timezone_for_message,
                       get_id_from_callback_query,
                       get_slot_order,
@@ -85,14 +86,12 @@ async def send_interval_message(bot: Bot, hour: int) -> None:
                 # await send_email(message_text)
 
                 # Проверка наличия списка ТГ-аккаунтов админов в окружении:
-                admins_in_env = os.getenv('admin_id')
-                if not admins_in_env:
-                    logging.error('Проблемы с переменной окружения admin_id')
+                admins_id = get_admins_account()
+                if not admins_id:
+                    logging.error('Проблемы со списком админов.')
                     return
 
                 # Отправляем сообщения в ТГ-аккаунты админам:
-                admins_id = list(map(int, admins_in_env.split(',')))
-                logging.info('Составлен список админов из env.')
                 for admin_id in admins_id:
                     await bot.send_message(admin_id, message_text)
                     logging.info(
@@ -131,11 +130,14 @@ async def scheduled_message(bot: Bot):
                 SECOND_SECTION, second_interval_orders
             )
 
-            # Получаем список администраторов:
-            admins_id = list(
-                map(int, str(os.getenv('admin_id')).split(','))
-                )
-            logging.debug(admins_id)
+            # Проверка наличия списка ТГ-аккаунтов админов в окружении:
+            admins_id = get_admins_account()
+            if not admins_id:
+                logging.error('Проблемы со списком админов.')
+                return
+            logging.debug(f'Список админов: {admins_id}')
+
+            # Отправляем сообщения в ТГ-аккаунты админам:
             for admin_id in admins_id:
                 try:
                     await bot.send_message(admin_id, message_text1)

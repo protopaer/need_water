@@ -7,7 +7,7 @@ SECOND_SECTION = 14
 SECOND_SECTION_EMOJI = '🕐'
 NEXT_WEEKDAY_EMOJI = '📅'
 OUR_TIMEZONE = 'Asia/Yekaterinburg'
-SECTION_MINUTES = 0
+SECTION_MINUTES = 30
 
 # Команды для действий:
 GET_LIST = '/get_list'
