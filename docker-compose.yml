@@ -6,6 +6,7 @@ services:
       - .env
     build: .
     volumes:
+      - ./src:app/src:ro
       - sqlite_data:/app/database  # Монтируем том для SQLite
     restart: unless-stopped
 

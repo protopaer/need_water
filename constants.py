@@ -1,13 +1,13 @@
 from pathlib import Path
 
 # Настройка графика работы:
-FIRST_SECTION = 12
+FIRST_SECTION = 10
 FIRST_SECTION_EMOJI = '🕙'
 SECOND_SECTION = 13
 SECOND_SECTION_EMOJI = '🕐'
 NEXT_WEEKDAY_EMOJI = '📅'
 OUR_TIMEZONE = 'Asia/Yekaterinburg'
-SECTION_MINUTES = 0
+SECTION_MINUTES = 30
 
 # Команды для действий:
 GET_LIST = '/get_list'
