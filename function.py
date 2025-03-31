@@ -178,7 +178,10 @@ async def generate_code_for_registration_and_waiting_answer(
                 await message.answer(GIVE_ME_ADDRESS_CODE)
                 await state.set_state(RegistrationStates.waiting_for_code)
             else:
-                await message.answer('Ошибка получения кода')
+                await message.answer(
+                    'Ошибка получения кода'
+                    'повторите попытку через несколько минут.'
+                )
                 logging.error(f'Ошибка получения кода для {user_in_chat}')
 
 

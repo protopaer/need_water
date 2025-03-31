@@ -423,17 +423,18 @@ async def main() -> None:
 
     # Создаём таблицы, если они ещё не существуют
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-        logging.info('Движок создан, база подключена')
-
         # Загрузка дб:
-        if bool(os.getenv('create_db')):
+        await conn.run_sync(Base.metadata.create_all)
+        logging.info('В main сработал "create_all".')
+        if bool(os.getenv('create_db') == 'True'):
             await all_upload()
+        logging.info('Движок создан, база подключена')
 
     token = str(os.getenv('bot_token'))
     bot = await setup_bot(token)
     await on_startup(bot)
     await dp.start_polling(bot)
+    logging.debug('main пройден весь.')
 
 
 if __name__ == '__main__':
