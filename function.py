@@ -298,7 +298,9 @@ async def check_user_today(session, tg_account_id, callback_query):
     return False
 
 
-async def collect_orders_for_interval(session, hour_find) -> Optional[list]:
+async def collect_orders_for_interval(
+    session, hour_find: int
+) -> Optional[list]:
     """
     Формируем список заявок по времени и выдает их список или ничего.
     """

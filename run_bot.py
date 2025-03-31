@@ -36,7 +36,7 @@ from function import (add_orgers_in_archive,
                       get_favorite_office,
                       get_workday_or_not,
                       return_office,
-                      send_email,
+                      # send_email,
                       start_registration)
 from keyboards import (create_all_builds_keyboard,
                        create_all_offices_keyboard,
@@ -81,13 +81,17 @@ async def send_interval_message(bot: Bot, hour: int) -> None:
                 orders = await collect_orders_for_interval(session, hour)
                 message_text = format_orders_message(hour, orders)
 
-                # Отправка email:
-                await send_email(message_text)
+                # Отправка email (временно отложено):
+                # await send_email(message_text)
 
-                # Отправляем сообщения в ТГ-аккаунты администраторам:
-                admins_id = list(
-                    map(int, str(os.getenv('admin_id')).split(','))
-                )
+                # Проверка наличия списка ТГ-аккаунтов админов в окружении:
+                admins_in_env = os.getenv('admin_id')
+                if not admins_in_env:
+                    logging.error('Проблемы с переменной окружения admin_id')
+                    return
+
+                # Отправляем сообщения в ТГ-аккаунты админам:
+                admins_id = list(map(int, str(admins_in_env.split(','))))
                 for admin_id in admins_id:
                     await bot.send_message(admin_id, message_text)
                     logging.info(
