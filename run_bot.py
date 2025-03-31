@@ -95,7 +95,7 @@ async def send_interval_message(bot: Bot, hour: int) -> None:
                 for admin_id in admins_id:
                     await bot.send_message(admin_id, message_text)
                     logging.info(
-                        f'Отправка сообщения выполнена для админа: {admin_id}'
+                        f'Админу {admin_id} направлен список заявок.'
                     )
 
                 # Чистим базу (проставляем статус - в архиве):
