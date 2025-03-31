@@ -3,7 +3,7 @@ from pathlib import Path
 # Настройка графика работы:
 FIRST_SECTION = 10
 FIRST_SECTION_EMOJI = '🕙'
-SECOND_SECTION = 16
+SECOND_SECTION = 17
 SECOND_SECTION_EMOJI = '🕐'
 NEXT_WEEKDAY_EMOJI = '📅'
 OUR_TIMEZONE = 'Asia/Yekaterinburg'
