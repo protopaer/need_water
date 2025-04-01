@@ -6,9 +6,13 @@ services:
       - .env
     build: .
     volumes:
-      # - ./src:/app/src:ro
       - sqlite_data:/app/database  # Монтируем том для SQLite
+      - bot_lock:/tmp  # Общий том для файла-локера
     restart: unless-stopped
-
+    deploy:
+      resources:
+        limits:
+          memory: 256M
 volumes:
   sqlite_data:  # Создаем том для SQLite
+  bot_lock:

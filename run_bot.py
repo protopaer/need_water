@@ -1,11 +1,16 @@
+import atexit
 import asyncio
+import fcntl
 import logging
 import os
+import sys
 
 from aiogram import Bot
+from aiogram.exceptions import TelegramConflictError
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, CallbackQuery
+from aiogram.utils.backoff import BackoffConfig
 from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy import insert, update
 
@@ -416,26 +421,130 @@ async def setup_bot(token: str) -> Bot:
     return bot
 
 
-# Run the bot
+async def check_single_instance() -> bool:
+    """
+    Проверяет, что бот запущен в единственном экземпляре через файл-локер.
+    Возвращает True, если блокировка получена, False если бот уже запущен.
+    """
+    lock_file = "/tmp/bot.lock"
+
+    try:
+        # Открываем файл для блокировки
+        fd = os.open(lock_file, os.O_CREAT | os.O_WRONLY, 0o644)
+
+        # Пытаемся получить эксклюзивную блокировку
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+        # Записываем PID текущего процесса
+        os.write(fd, str(os.getpid()).encode())
+        os.fsync(fd)  # Синхронизируем запись на диск
+
+        # Функция для освобождения блокировки
+        def release_lock() -> None:
+            """Корректно освобождает файловую блокировку"""
+            try:
+                fcntl.flock(fd, fcntl.LOCK_UN)
+                os.close(fd)
+                try:
+                    os.unlink(lock_file)
+                except FileNotFoundError:
+                    pass  # Файл уже удален
+            except Exception as e:
+                logging.warning(f'Ошибка при освобождении блокировки: {e}')
+
+        # Регистрируем освобождение при завершении программы
+        atexit.register(release_lock)
+        return True
+
+    except (BlockingIOError, PermissionError, OSError) as e:
+        logging.error(f'Не удалось получить блокировку: {e}')
+        if 'fd' in locals():
+            try:
+                os.close(fd)  # Закрываем файловый дескриптор
+            except OSError:
+                pass
+        return False
+
+
+# Запуск бота:
 async def main() -> None:
+    # 1. Проверка единственного экземпляра
+    try:
+        if not await check_single_instance():
+            logging.error('Бот уже запущен в другом процессе/контейнере')
+            sys.exit(1)
+    except Exception as e:
+        logging.critical(f'Ошибка при проверке блокировки: {e}')
+        sys.exit(1)
 
+    # 2. Настройка логгирования
     configure_logging()  # Запускаем сконфигурированный логгер
+    logging.info('Запуск бота...')
 
+    # 3. Инициализация БД
     # Создаём таблицы, если они ещё не существуют
-    async with engine.begin() as conn:
-        # Загрузка дб:
-        await conn.run_sync(Base.metadata.create_all)
-        logging.info('В main сработал "create_all".')
-        if bool(os.getenv('create_db') == 'True'):
-            await all_upload()
-        logging.info('Движок создан, база подключена')
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+            if os.getenv('create_db', '').lower() == 'true':
+                await all_upload()
+            logging.info('База данных готова')
+    except Exception as e:
+        logging.critical(f'Ошибка инициализации БД: {e}')
+        sys.exit(1)
 
-    token = str(os.getenv('bot_token'))
-    bot = await setup_bot(token)
-    await on_startup(bot)
-    await dp.start_polling(bot)
-    logging.debug('main пройден весь.')
+    # 4. Настройка бота
+    try:
+        token = os.getenv('bot_token')
+        if not token:
+            raise ValueError('Не указан токен бота в переменных окружения')
 
+        bot = await setup_bot(token)
+    except Exception as e:
+        logging.critical(f'Ошибка настройки бота: {e}')
+        sys.exit(1)
+
+    # 5. Настройка экспоненциальной задержки при ошибках подключения к API:
+    backoff_config = BackoffConfig(
+        min_delay=1.0,    # Начальная задержка 1 сек
+        max_delay=80.0,    # Максимальная задержка 80 сек
+        jitter=0.3,        # Добавляем 30% случайности
+        factor=2          # Экспоненциальный множитель
+    )
+
+    # 6. Основной цикл работы бота
+    try:
+        logging.info('Запуск планировщика...')
+        await on_startup(bot)
+
+        logging.info('Старт polling...')
+        await dp.start_polling(
+            bot,
+            skip_updates=True,
+            allowed_updates=['message', 'callback_query'],
+            backoff_config=backoff_config
+        )
+    except TelegramConflictError as e:
+        logging.critical(f'Конфликт доступа к боту: {e}')
+    except asyncio.CancelledError:
+        logging.info('Работа бота прервана по запросу')
+    except Exception as e:
+        logging.critical(f'Неожиданная ошибка: {e}', exc_info=True)
+    finally:
+        # 7. Корректное завершение работы
+        logging.info('Завершение работы...')
+        try:
+            await bot.session.close()
+        except Exception as e:
+            logging.error(f'Ошибка при закрытии сессии бота: {e}')
+
+        try:
+            await engine.dispose()
+        except Exception as e:
+            logging.error(f'Ошибка при освобождении ресурсов БД: {e}')
+
+        logging.info('Бот остановлен')
+        sys.exit(0)
 
 if __name__ == '__main__':
     asyncio.run(main())
