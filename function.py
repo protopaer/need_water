@@ -1,20 +1,21 @@
-import asyncio
 import logging
 import os
 import re
 from aiohttp import ClientSession, ClientError
 from collections import defaultdict
 from datetime import time, datetime
-from email.message import EmailMessage
 from typing import Optional
 from zoneinfo import ZoneInfo
 
-import aiosmtplib
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 from dotenv import load_dotenv
 from sqlalchemy import and_, or_, select, update
 from sqlalchemy.orm import joinedload
+
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 from constants import (API_PHONEBOOK_AWAIT,
                        GET_LIST,
@@ -398,64 +399,45 @@ async def send_email(message):
     """
     Выполнение рассылки (отправка писем администраторам).
     """
-    # Загрузка из .env:
-    smtp_mmk_server = str(os.getenv('smtp_mmk_server'))
-    smtp_mmk_port = int(os.getenv('smtp_mmk_port'))
+    # Параметры сервера ММК:
+    server = str(os.getenv('smtp_mmk_server'))
+    port = int(os.getenv('smtp_mmk_port'))
 
-    sender_email = str(os.getenv('sender'))
-    sender_password = str(os.getenv('pass_water'))
+    # Отправитель письма-рассылки:
+    sender = str(os.getenv('sender'))
+    login_name = str(os.getenv('login_water'))
+    login = rf'hq\{login_name}'
+    password = str(os.getenv('pass_water'))
     subject = 'Доставка воды'
 
     # Получение списка адресатов:
     recipient_email = str(os.getenv('recipient_address'))
     recipient_stack = recipient_email.split(',')
 
-    # Создаем задачи для каждого получателя
-    tasks = []
-    for email in recipient_stack:
-        try:
-            msg = EmailMessage()
-            msg['From'] = sender_email
-            msg['To'] = email
-            msg['Subject'] = subject
-            msg.set_content(message)
+    # Создание объекта сообщения:
+    msg = MIMEMultipart()
+    msg['From'] = sender
+    msg['Subject'] = subject
+    msg.attach(MIMEText(message, 'plain', 'utf-8'))
 
-            # Создаем задачу для отправки
-            task = asyncio.create_task(
-                send_single_email(
-                    msg=msg,
-                    sender_email=sender_email,
-                    password=sender_password,
-                    hostname=smtp_mmk_server,
-                    port=smtp_mmk_port,
-                    recipient=email
-                )
-            )
-            tasks.append(task)
-        except Exception as e:
-            logging.error(f'Ошибка при подготовке письма для {email}: {e}')
-
-    # Ожидаем завершения всех задач:
-    await asyncio.gather(*tasks, return_exceptions=True)
-
-
-async def send_single_email(
-        msg, sender_email, password, hostname, port, recipient
-):
-    """
-    Отправка письма администратору.
-    """
     try:
-        await aiosmtplib.send(
-            msg,
-            sender=sender_email,
-            hostname=hostname,
-            port=port,
-            username=sender_email,
-            password=password,
-            recipients=[recipient],
-            use_tls=True  # Использование шифрование
-        )
-        logging.info(f'Письмо {recipient} успешно отправлено!')
+        server = smtplib.SMTP(host=server, port=port)
+
+        # Проверка успешности авторизации на почтовом сервере:
+        code_response, response = server.login(login, password)
+
+        if code_response != 235:
+            logging.error(f'Ошибка при логине: {response}')
+            return
+        for email in recipient_stack:
+            msg['To'] = email
+            server.sendmail(sender, email, msg.as_string())
+            logging.info(f'Письмо отправлено на почту {email}')
     except Exception as e:
-        logging.error(f'Ошибка при отправке письма {recipient}: {e}')
+        logging.info(f'Ошибка при отправке письма: {e}')
+    finally:
+        if server is not None:
+            try:
+                server.quit()
+            except smtplib.SMTPServerDisconnected:
+                logging.info('Подключение к серверу рассылки email разорвано.')

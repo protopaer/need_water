@@ -3,11 +3,11 @@ from pathlib import Path
 # Настройка графика работы:
 FIRST_SECTION = 10
 FIRST_SECTION_EMOJI = '🕙'
-SECOND_SECTION = 17
+SECOND_SECTION = 13
 SECOND_SECTION_EMOJI = '🕐'
+SECTION_MINUTES = 0
 NEXT_WEEKDAY_EMOJI = '📅'
 OUR_TIMEZONE = 'Asia/Yekaterinburg'
-SECTION_MINUTES = 0
 
 # Команды для действий:
 GET_LIST = '/get_list'
@@ -15,7 +15,7 @@ ADD_OFFICE = 'add_office'
 ADD_BUILD = 'add_build'
 
 API_PHONEBOOK_AWAIT = 10
-AWAIT_DISABLE_NOTIFICATION = 60
+AWAIT_DISABLE_NOTIFICATION = 120
 
 # Настройка логгирования:
 BASE_DIR = Path(__file__).parent

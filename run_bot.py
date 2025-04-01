@@ -37,7 +37,7 @@ from function import (add_orgers_in_archive,
                       get_favorite_office,
                       get_workday_or_not,
                       return_office,
-                      # send_email,
+                      send_email,
                       start_registration)
 from keyboards import (create_all_builds_keyboard,
                        create_all_offices_keyboard,
@@ -83,7 +83,7 @@ async def send_interval_message(bot: Bot, hour: int) -> None:
                 message_text = format_orders_message(hour, orders)
 
                 # Отправка email (временно отложено):
-                # await send_email(message_text)
+                await send_email(message_text)
 
                 # Проверка наличия списка ТГ-аккаунтов админов в окружении:
                 admins_id = get_admins_account()
