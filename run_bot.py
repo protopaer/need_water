@@ -519,7 +519,7 @@ async def main() -> None:
         logging.info('Запуск планировщика...')
         await on_startup(bot)
 
-        logging.info('Старт polling...')
+        logging.info('Старт выполнения процедуры polling...')
         await dp.start_polling(
             bot,
             skip_updates=True,
