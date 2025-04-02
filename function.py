@@ -348,7 +348,7 @@ async def collect_orders_for_interval(
 
         formatted_orders = []
         for building, offices in sorted(buildings.items()):
-            formatted_orders.append(('-' * 41) + '\n' + f'Здание: {building}')
+            formatted_orders.append(('-' * 41) + '\n' + f'Объект: {building}')
             formatted_orders.extend(f'🫙 {office}' for office in offices)
 
         return formatted_orders
