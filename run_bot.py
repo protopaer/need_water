@@ -26,7 +26,8 @@ from constants import (AWAIT_DISABLE_NOTIFICATION, FIRST_SECTION,
                        SECTION_MINUTES,
                        START_AGAIN_BUILD,
                        START_AGAIN_OFFICE,
-                       START_TEXT)
+                       START_TEXT,
+                       TIMEOUT_AIOGRAM)
 from function import (add_orgers_in_archive,
                       check_office_exists,
                       check_order_today,
@@ -411,7 +412,8 @@ async def setup_bot(token: str) -> Bot:
     # Инициализация бота, диспетчера и роутеров:
     bot = Bot(
         token=token,
-        can_edit_messages=True
+        can_edit_messages=True,
+        timeout=TIMEOUT_AIOGRAM
     )
 
     # Добавляем роутеры:
@@ -521,6 +523,7 @@ async def main() -> None:
         await dp.start_polling(
             bot,
             skip_updates=True,
+            relax=0.5,
             allowed_updates=['message', 'callback_query'],
             backoff_config=backoff_config
         )

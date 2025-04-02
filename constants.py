@@ -15,6 +15,7 @@ ADD_OFFICE = 'add_office'
 ADD_BUILD = 'add_build'
 
 API_PHONEBOOK_AWAIT = 10
+TIMEOUT_AIOGRAM = 30
 AWAIT_DISABLE_NOTIFICATION = 120
 
 # Настройка логгирования:
