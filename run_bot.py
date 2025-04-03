@@ -82,6 +82,7 @@ async def send_interval_message(bot: Bot, hour: int) -> None:
     Отправляет сообщения администраторам для указанного интервала.
     """
     async with AsyncSessionLocal() as session:
+        # Если сегодня рабочий день:
         if get_workday_or_not():
             try:
                 # Получаем данные о заказах для указанного интервала

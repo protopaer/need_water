@@ -324,10 +324,10 @@ async def collect_orders_for_interval(
         result = await session.execute(
             select(Order)
             .where(
-                and_(
-                    Order.order_time < time(hour_find, 0),
-                    Order.in_archive == False
-                )
+                # and_(
+                #     Order.order_time < time(hour_find, 0),  # <-- эта строчка под вопросом
+                Order.in_archive == False
+                # )
             ).options(
                 joinedload(Order.office).joinedload(Offices.building)
             )
@@ -385,10 +385,10 @@ async def add_orgers_in_archive(session, hour):
     Проставляет статус В АРХИВЕ заявкам после отправки сообщения админам.
     """
     orders_in_archive = update(Order).where(
-        and_(
-            Order.order_time < time(hour, 0),
-            Order.in_archive == False
-        )
+        # and_(
+        #     Order.order_time < time(hour, 0),  # <-- эта строчка тоже под вопросом
+        Order.in_archive == False
+        # )
     ).values(in_archive=True)
 
     await session.execute(orders_in_archive)
