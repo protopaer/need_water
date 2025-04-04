@@ -1,6 +1,7 @@
 import csv
 import logging
 from config import AsyncSessionLocal
+from constants import ENCODING_IN_UTF
 from models import Builds, Offices
 
 
@@ -58,7 +59,7 @@ async def upload_dataset(dataname):
     with open(
         f'dataset/dataset_{dataname}.csv',
         mode='r',
-        encoding='utf-8'
+        encoding=ENCODING_IN_UTF
     ) as file:
         csv_reader = csv.DictReader(file)
         for row in csv_reader:

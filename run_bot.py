@@ -24,6 +24,7 @@ from config import AsyncSessionLocal, dp, engine, scheduler
 from constants import (AWAIT_DISABLE_NOTIFICATION,
                        BOOTLES_LEFT,
                        FIRST_SECTION,
+                       INSTRUCTION_NEW_ORDER,
                        OUR_TIMEZONE,
                        REGISTRATION_DONE,
                        REPEAT_TEXT, RULES,
@@ -100,9 +101,7 @@ async def send_interval_message(bot: Bot, hour: int) -> None:
                 await send_email(message_text)
 
                 # Проверка наличия списка ТГ-аккаунтов админов в окружении:
-                admins_id = get_admins_account()
-                if not admins_id:
-                    logging.error('Проблемы со списком админов.')
+                if not (admins_id := get_admins_account()):
                     return
 
                 # Отправляем сообщения в ТГ-аккаунты админам:
@@ -145,11 +144,8 @@ async def scheduled_message(bot: Bot):
             )
 
             # Проверка наличия списка ТГ-аккаунтов админов в окружении:
-            admins_id = get_admins_account()
-            if not admins_id:
-                logging.error('Проблемы со списком админов.')
+            if not (admins_id := get_admins_account()):
                 return
-            logging.debug(f'Список админов: {admins_id}')
 
             # Отправляем сообщения в ТГ-аккаунты админам:
             for admin_id in admins_id:
@@ -173,15 +169,11 @@ async def command_start_handler(message: Message, state: FSMContext) -> None:
         # Проверяем авторизацию пользователя...:
         if not await check_authorization(session, message):
             # если нет - запускаем регистрацию:
-            registration_complete = await start_registration(message, state)
-            if not registration_complete:
+            if not await start_registration(message, state):
                 return  # Прерываем (если регистрация не завершена)
 
-        # Проверка, что вода доступна для заказа:
-        bootles_left = await return_bootles(session)
-
-        # если не осталось доступных бутылей:
-        if bootles_left == 0:
+        # Проверка, что вода доступна для заказа или ответ «извините»:
+        if await return_bootles(session) == 0:
             await message.answer(f'❌ {choice(SORRY)}')
             return
 
@@ -351,11 +343,13 @@ async def process_confirm_callback(callback_query: CallbackQuery, bot) -> None:
         # Считаем количество оставшихся бутылей:
         bootles_left = await return_bootles(session)
 
-        # На случай, если мы только создаем базу (критически важная часть 🔥🔥🔥)
+        # 🔥 Критически важная часть:
+        # На случай, если мы только создаем базу - количество оставшихся
+        # бутылей подтягивается из константы:
         if bootles_left is None or not isinstance(bootles_left, int):
             bootles_left = BOOTLES_LEFT
             logging.warning(
-                f'Использовано значение по умолчанию ({BOOTLES_LEFT}) '
+                f'Задано дефолтное значение кол-ва бутылей ({BOOTLES_LEFT}).'
             )
 
         # Создаем новую «заявку на воду» в таблице Order:
@@ -389,16 +383,13 @@ async def process_confirm_callback(callback_query: CallbackQuery, bot) -> None:
             'Ожидайте…'
         )
 
-        # Направка уведомления админам о снижении остатков воды:
+        # Проверка и направление уведомления админам о снижении остатков воды:
         await send_message_when_water_left(bot, bootles_left)
 
         # Встать на паузу и отправить инструкцию, как сделать новую заявку:
         await asyncio.sleep(AWAIT_DISABLE_NOTIFICATION)
         await callback_query.message.answer(
-            'Как подать новую заявку:\n'
-            ' - /start\n'
-            ' - кнопка «🟰Меню» слева от строки ввода сообщения',
-            disable_notification=True
+            INSTRUCTION_NEW_ORDER, disable_notification=True
         )
 
 
@@ -430,7 +421,9 @@ async def process_cancel_callback(callback_query: CallbackQuery):
 
 
 async def setup_bot(token: str) -> Bot:
-    # Инициализация бота, диспетчера и роутеров:
+    """
+    Инициализация бота, диспетчера и роутеров.
+    """
     bot = Bot(
         token=token,
         can_edit_messages=True,

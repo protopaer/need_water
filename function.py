@@ -4,6 +4,7 @@ import re
 from aiohttp import ClientSession, ClientError
 from collections import defaultdict
 from datetime import time, datetime
+from http import HTTPStatus
 from typing import Optional, Union
 from zoneinfo import ZoneInfo
 
@@ -21,6 +22,8 @@ from email.mime.multipart import MIMEMultipart
 from constants import (ADD_BOOTLES,
                        API_PHONEBOOK_AWAIT,
                        CONSTANT_WATER_SUPPLY,
+                       ENCODING_IN_UTF,
+                       ERROR_WHEN_GET_CODE,
                        FIRST_SECTION,
                        FIRST_SECTION_EMOJI,
                        GIVE_ME_ADDRESS_CODE,
@@ -28,7 +31,8 @@ from constants import (ADD_BOOTLES,
                        SECOND_SECTION,
                        SECOND_SECTION_EMOJI,
                        NEXT_WEEKDAY_EMOJI,
-                       SECTION_MINUTES)
+                       SECTION_MINUTES,
+                       SUCCESSFUL_AUTH_IN_SMTP_STATUS_CODE)
 from models import Offices, Order, TgAccounts
 from users.users_fcm import RegistrationStates
 
@@ -68,12 +72,13 @@ def get_admins_account() -> Optional[list]:
     """
     Проверка наличия списка ТГ-аккаунтов админов в окружении.
     """
-    admins_in_env = os.getenv('admin_id')
-    if not admins_in_env:
-        return None
-    admins_id = list(map(int, admins_in_env.split(',')))
-    logging.info('Составлен список админов из env.')
-    return admins_id
+    if admins_in_env := os.getenv('admin_id'):
+        admins_id = [int(admin) for admin in admins_in_env.split(',')]
+        logging.info(f'Составлен список админов из env: {admins_id}')
+        return admins_id
+
+    logging.error('Проблемы со списком админов.')
+    return None
 
 
 def get_slot_order(localized_time: datetime):
@@ -111,7 +116,7 @@ def get_slot_order(localized_time: datetime):
 
 
 def format_orders_message(hour: int, orders: Optional[list]) -> str:
-    """Формирование сообщения с заявками до указанного часа"""
+    """Формирование сообщения с заявками до указанного часа."""
     if orders:
         header = f'Список заявок, созданных до {hour} часов:\n'
         message = header + '\n'.join(orders)
@@ -172,7 +177,7 @@ async def generate_code_for_registration_and_waiting_answer(
                 f'{user_in_chat} запросил обновление кода на сайте АТУ.'
             )
 
-            if response.status == 201:
+            if response.status == HTTPStatus.CREATED:
                 data = await response.json()  # данные
                 code = str(data.get('number'))  # код
                 logging.info(f'{user_in_chat} получил код {code}')
@@ -181,10 +186,7 @@ async def generate_code_for_registration_and_waiting_answer(
                 await message.answer(GIVE_ME_ADDRESS_CODE)
                 await state.set_state(RegistrationStates.waiting_for_code)
             else:
-                await message.answer(
-                    'Ошибка получения кода'
-                    'повторите попытку через несколько минут.'
-                )
+                await message.answer(ERROR_WHEN_GET_CODE)
                 logging.error(f'Ошибка получения кода для {user_in_chat}')
 
 
@@ -369,10 +371,7 @@ async def collect_orders_for_interval(
         result = await session.execute(
             select(Order)
             .where(
-                # and_(
-                #     Order.order_time < time(hour_find, 0),  # <-- эта строчка под вопросом
                 Order.in_archive == False
-                # )
             ).options(
                 joinedload(Order.office).joinedload(Offices.building)
             )
@@ -452,10 +451,7 @@ async def add_orgers_in_archive(session, hour):
     Проставляет статус В АРХИВЕ заявкам после отправки сообщения админам.
     """
     orders_in_archive = update(Order).where(
-        # and_(
-        #     Order.order_time < time(hour, 0),  # <-- эта строчка тоже под вопросом
         Order.in_archive == False
-        # )
     ).values(in_archive=True)
 
     await session.execute(orders_in_archive)
@@ -485,7 +481,7 @@ async def send_email(message):
     msg = MIMEMultipart()
     msg['From'] = sender
     msg['Subject'] = subject
-    msg.attach(MIMEText(message, 'plain', 'utf-8'))
+    msg.attach(MIMEText(message, 'plain', ENCODING_IN_UTF))
 
     try:
         server = smtplib.SMTP(host=server, port=port)
@@ -493,7 +489,7 @@ async def send_email(message):
         # Проверка успешности авторизации на почтовом сервере:
         code_response, response = server.login(login, password)
 
-        if code_response != 235:
+        if code_response != SUCCESSFUL_AUTH_IN_SMTP_STATUS_CODE:
             logging.error(f'Ошибка при логине: {response}')
             return
         for email in recipient_stack:
@@ -512,13 +508,11 @@ async def send_email(message):
 
 async def send_message_when_water_left(bot: Bot, bootles_left) -> None:
     """
-    Направление уведомлений админам о заканчивающейся воде.
+    Направление уведомлений админам о заканчивающейся воде (по триггеру).
     """
     if bootles_left <= CONSTANT_WATER_SUPPLY:
         # Проверка наличия списка ТГ-аккаунтов админов в окружении:
-        admins_id = get_admins_account()
-        if not admins_id:
-            logging.error('Проблемы со списком админов.')
+        if not (admins_id := get_admins_account()):
             return
 
         # Отправляем сообщения в ТГ-аккаунты админам:
