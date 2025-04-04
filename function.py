@@ -4,7 +4,7 @@ import re
 from aiohttp import ClientSession, ClientError
 from collections import defaultdict
 from datetime import time, datetime
-from typing import Optional
+from typing import Optional, Union
 from zoneinfo import ZoneInfo
 
 from aiogram.fsm.context import FSMContext
@@ -17,8 +17,8 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
-from constants import (API_PHONEBOOK_AWAIT,
-                       GET_LIST,
+from constants import (ADD_BOOTLES,
+                       API_PHONEBOOK_AWAIT,
                        FIRST_SECTION,
                        FIRST_SECTION_EMOJI,
                        GIVE_ME_ADDRESS_CODE,
@@ -234,6 +234,25 @@ async def return_office(session, office_id) -> Offices:
     return result.scalars().first()
 
 
+async def return_last_order(session) -> Optional[Order]:
+    """Возвращает крайний заказ."""
+    last_order = await session.scalar(
+        select(Order)
+        .order_by(Order.id.desc())  # Сортируем по ID в обратном порядке
+        .limit(1)                  # Берем только одну запись
+    )
+    return last_order if last_order else None
+
+
+async def return_bootles(session) -> Optional[int]:
+    """Возвращает количество бутылей из крайнего заказа."""
+    last_order = await return_last_order(session)
+    if last_order is None:
+        return None
+    # Возвращаем количество бутылей, если заказ существует
+    return last_order.bootles_left
+
+
 async def check_office_exists(callback_query: CallbackQuery, office) -> bool:
     """
     Проверяет, существует ли кабинет.
@@ -361,23 +380,45 @@ async def collect_orders_for_interval(
         return None
 
 
-async def parse_hours_from_admin_message(message):
+async def parse_element_from_admin_message(
+        message: Message,
+        element: str,
+        min_in_range: int,
+        max_in_range: int
+) -> Union[int, bool]:
     """
-    Захватывает указанный админом в message час для формирования списка заявок.
+    Захватывает указанное админом в message количество элементов.
     """
-    pattern = fr'{GET_LIST}_(?P<hour>\d+)$'
-    hour_in_message = re.search(pattern, message.text)
+    text_in_message = {
+        'hour': ('', 'час'),
+        'bootles': (', чтобы привезли', 'бутылей сразу'),
+    }
 
-    if not hour_in_message:
-        await message.answer('❌ Некорректный формат при отправке команды.')
+    # Проверяем наличие элемента в ожидаемом словаре:
+    if element not in text_in_message:
+        await message.answer('❌ Неподдерживаемый тип элемента')
         return False
 
-    hour_find = int(hour_in_message.group('hour'))
+    first_part_msg, second_part_msg = text_in_message[element]
 
-    if hour_find not in range(0, 25):
-        await message.answer(f'❌ Где вы видели {hour_find} час.')
+    # Проверяем соответствие указанного числа ожидаемому диапазону:
+    pattern = fr'{ADD_BOOTLES}_(?P<{element}>\d+)$'
+    element_in_message = re.search(pattern, message.text)
+
+    if not element_in_message:
+        await message.answer('❌ Некорректный формат введенного количества.')
         return False
-    return hour_find
+
+    element_find = int(element_in_message.group(element))
+
+    if element_find not in range(min_in_range, max_in_range + 1):
+        await message.answer(
+            f'❌ Где вы видели{first_part_msg} '
+            f'{element_find} {second_part_msg}.'
+        )
+        return False
+
+    return element_find
 
 
 async def add_orgers_in_archive(session, hour):

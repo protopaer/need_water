@@ -84,6 +84,7 @@ class Order(Base):
     order_date = Column(Date, nullable=False)
     order_time = Column(Time, nullable=False)
     in_archive = Column(Boolean, default=False)
+    bootles_left = Column(Integer, nullable=False)
 
     # Отношения
     office = relationship('Offices', back_populates='orders')

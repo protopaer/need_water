@@ -4,30 +4,33 @@ from aiogram import Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, CallbackQuery
+from sqlalchemy import update
 
 from admins.admins_fcm import AddOfficeStates, AddBuildStates
 from admins.admins_loading_dataset import create_office_object
 from config import AsyncSessionLocal, dp
-from constants import (ABBR_OFFICE_COUNT,
-                       ADD_BUILD,
-                       ADD_OFFICE,
-                       GET_LIST,
-                       NAME_OFFICE_COUNT,
-                       NAME_BUILD_COUNT)
+from constants import (ABBR_OFFICE_COUNT, ADD_BOOTLES, ADD_BUILD, ADD_OFFICE,
+                       GET_LIST, MAX_BOOTLE_ACCEPT, MAX_HOUR_IN_DAYS,
+                       MIN_BOOTLE_ACCEPT, MIN_HOUR_IN_DAYS,
+                       NAME_OFFICE_COUNT, NAME_BUILD_COUNT)
 from function import (collect_orders_for_interval,
                       get_id_from_callback_query,
                       format_orders_message,
-                      parse_hours_from_admin_message)
+                      parse_element_from_admin_message,
+                      return_last_order)
 from keyboards import create_all_builds_keyboard, confirm_def_keyboard
-from models import Builds
+from models import Builds, Order
 
 
 # Создание роутеров для команд администратора и регистрация в диспетчере:
 router_add_office = Router()
 router_get_list = Router()
+router_add_bootles = Router()
+
 
 url_for_add_office = dp.include_router(router_add_office)
 url_for_get_list = dp.include_router(router_get_list)
+url_for_add_bootles = dp.include_router(router_add_bootles)
 
 
 # Обработчик команды /add_office
@@ -222,7 +225,12 @@ async def list_orders_handler(message: Message) -> None:
     """
     async with AsyncSessionLocal() as session:
 
-        hour_find = await parse_hours_from_admin_message(message)
+        hour_find = await parse_element_from_admin_message(
+            message,
+            'hour',
+            MIN_HOUR_IN_DAYS,
+            MAX_HOUR_IN_DAYS
+        )
         if not hour_find:
             return
 
@@ -233,3 +241,60 @@ async def list_orders_handler(message: Message) -> None:
         logging.info(
             f'Админ вручную запросил список заявок для {hour_find} часов'
         )
+
+
+# -----------------------------------------------------------------------------
+
+
+@router_add_bootles.message(
+    lambda message: message.text.startswith(f'{ADD_BOOTLES}_')
+)
+async def add_bootles_in_db(message: Message):
+    """
+    Добавляем поступление бутылей к их фактическому количеству.
+    """
+    async with AsyncSessionLocal() as session:
+
+        try:
+            # Парсим количество бутылей из сообщения
+            add_bootles = await parse_element_from_admin_message(
+                message,
+                'bootles',
+                MIN_BOOTLE_ACCEPT,
+                MAX_BOOTLE_ACCEPT
+            )
+            if not add_bootles:
+                return
+
+            # Получаем последний заказ:
+            last_order = await return_last_order(session)
+            if not last_order:
+                await message.answer('❌ Не найдено ни одного заказа')
+                return
+
+            # Обновляем количество бутылей
+            new_quantity = last_order.bootles_left + add_bootles
+            await session.execute(
+                update(Order)
+                .where(Order.id == last_order.id)
+                .values(bootles_left=new_quantity)
+            )
+            await session.commit()
+
+            # Отправляем подтверждение админу:
+            await message.answer(
+                f'✅ Добавлено {add_bootles} бутылей. '
+                f'Теперь общее количество: {new_quantity}'
+            )
+            logging.info(
+                f'Админ добавил {add_bootles} бутылей к заказу {last_order.id}'
+            )
+
+            await session.commit()
+
+        except Exception as e:
+            await session.rollback()
+            await message.answer('❌ Произошла ошибка при обновлении данных')
+            logging.error(
+                f'Ошибка в add_bootles_in_db: {str(e)}', exc_info=True
+            )

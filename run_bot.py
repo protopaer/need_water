@@ -4,6 +4,7 @@ import fcntl
 import logging
 import os
 import sys
+from random import choice
 
 from aiogram import Bot
 from aiogram.exceptions import TelegramConflictError
@@ -18,12 +19,15 @@ from admins.admins_action import url_for_add_office, url_for_get_list
 from admins.admins_loading_dataset import all_upload
 from bot_logging import configure_logging
 from config import AsyncSessionLocal, dp, engine, scheduler
-from constants import (AWAIT_DISABLE_NOTIFICATION, FIRST_SECTION,
+from constants import (AWAIT_DISABLE_NOTIFICATION,
+                       BOOTLES_LEFT,
+                       FIRST_SECTION,
                        OUR_TIMEZONE,
                        REGISTRATION_DONE,
                        REPEAT_TEXT, RULES,
                        SECOND_SECTION,
                        SECTION_MINUTES,
+                       SORRY,
                        START_AGAIN_BUILD,
                        START_AGAIN_OFFICE,
                        START_TEXT,
@@ -42,6 +46,7 @@ from function import (add_orgers_in_archive,
                       get_slot_order,
                       get_favorite_office,
                       get_workday_or_not,
+                      return_bootles,
                       return_office,
                       send_email,
                       start_registration)
@@ -169,6 +174,14 @@ async def command_start_handler(message: Message, state: FSMContext) -> None:
             registration_complete = await start_registration(message, state)
             if not registration_complete:
                 return  # Прерываем (если регистрация не завершена)
+
+        # Проверка, что вода доступна для заказа:
+        bootles_left = await return_bootles(session)
+
+        # если не осталось доступных бутылей:
+        if bootles_left == 0:
+            await message.answer(f'❌ {choice(SORRY)}')
+            return
 
         # FIXME попробовать убрать favorite_office:
         favorite_office = await get_favorite_office(session, message)
@@ -333,6 +346,16 @@ async def process_confirm_callback(callback_query: CallbackQuery) -> None:
         if await check_order_today(session, office, callback_query):
             return
 
+        # Считаем количество оставшихся бутылей:
+        bootles_left = await return_bootles(session)
+
+        # На случай, если мы только создаем базу (критически важная часть 🔥🔥🔥)
+        if bootles_left is None or not isinstance(bootles_left, int):
+            bootles_left = BOOTLES_LEFT
+            logging.warning(
+                f'Использовано значение по умолчанию ({BOOTLES_LEFT}) '
+            )
+
         # Создаем новую «заявку на воду» в таблице Order:
         result = await session.execute(
             insert(Order)
@@ -341,7 +364,8 @@ async def process_confirm_callback(callback_query: CallbackQuery) -> None:
                 tg_account_id=tg_account_id,
                 order_date=localized_time.date(),
                 order_time=localized_time.time(),
-                in_archive=False
+                in_archive=False,
+                bootles_left=bootles_left - 1
             )
             .returning(Order.id)
         )

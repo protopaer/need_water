@@ -9,8 +9,18 @@ SECTION_MINUTES = 0
 NEXT_WEEKDAY_EMOJI = '📅'
 OUR_TIMEZONE = 'Asia/Yekaterinburg'
 
+# Количество часов (старт):
+MIN_HOUR_IN_DAYS = 0
+MAX_HOUR_IN_DAYS = 24
+
+# Количество бутылей (старт):
+BOOTLES_LEFT = 2  # важно указать правильное (фактическое) кол-во на старте 🔥
+MAX_BOOTLE_ACCEPT = 99
+MIN_BOOTLE_ACCEPT = 1
+
 # Команды для действий:
 GET_LIST = '/get_list'
+ADD_BOOTLES = '/add_bootles'
 ADD_OFFICE = 'add_office'
 ADD_BUILD = 'add_build'
 
@@ -61,4 +71,12 @@ RULES = (
     '7. Процедура регистрации выполняется для каждого Telegram-аккаунта '
     'один раз.\n\n\n'
     'Замечания и пожелания в ЛС @mx_style74'
+)
+
+SORRY = (
+    'Очень жаль, но воды пока нет. Может кофе?',
+    'Выпили всю воду, остался только электролит 💀',
+    'На складах пусто, но Марсель уже озадачен проблемой '
+    'отсутствия воды, держитесь!',
+    'Воды нет, но есть печеньки... 🍪 🍪 🍪'
 )
