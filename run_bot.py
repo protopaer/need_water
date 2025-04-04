@@ -15,7 +15,9 @@ from aiogram.utils.backoff import BackoffConfig
 from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy import insert, update
 
-from admins.admins_action import url_for_add_office, url_for_get_list
+from admins.admins_action import (url_for_add_office,
+                                  url_for_get_list,
+                                  url_for_add_bootles)
 from admins.admins_loading_dataset import all_upload
 from bot_logging import configure_logging
 from config import AsyncSessionLocal, dp, engine, scheduler
@@ -37,7 +39,7 @@ from function import (add_orgers_in_archive,
                       check_order_today,
                       check_user_today,
                       check_authorization,
-                      collect_orders_for_interval,
+                      collect_orders_for_interval, create_new_order_in_db,
                       create_user_attrs,
                       format_orders_message,
                       get_admins_account,
@@ -48,13 +50,13 @@ from function import (add_orgers_in_archive,
                       get_workday_or_not,
                       return_bootles,
                       return_office,
-                      send_email,
+                      send_email, send_message_when_water_left,
                       start_registration)
 from keyboards import (create_all_builds_keyboard,
                        create_all_offices_keyboard,
                        confirm_keyboard,
                        remove_keyboard)
-from models import Base, Offices, Order, TgAccounts
+from models import Base, Offices, TgAccounts
 from users.users_fcm import RegistrationStates
 
 
@@ -318,7 +320,7 @@ async def process_callback_button(callback_query: CallbackQuery) -> None:
 
 
 @dp.callback_query(lambda c: c.data.startswith('confirm_'))
-async def process_confirm_callback(callback_query: CallbackQuery) -> None:
+async def process_confirm_callback(callback_query: CallbackQuery, bot) -> None:
     """
     Обработчик подтверждения выбора кабинета.
     """
@@ -357,17 +359,8 @@ async def process_confirm_callback(callback_query: CallbackQuery) -> None:
             )
 
         # Создаем новую «заявку на воду» в таблице Order:
-        result = await session.execute(
-            insert(Order)
-            .values(
-                office_id=office_id,
-                tg_account_id=tg_account_id,
-                order_date=localized_time.date(),
-                order_time=localized_time.time(),
-                in_archive=False,
-                bootles_left=bootles_left - 1
-            )
-            .returning(Order.id)
+        result = await create_new_order_in_db(
+            session, office_id, tg_account_id, localized_time, bootles_left
         )
         new_order_id = result.scalar()
 
@@ -395,6 +388,9 @@ async def process_confirm_callback(callback_query: CallbackQuery) -> None:
             f'Доставка: {emoji} {order_in_time}!\n\n'
             'Ожидайте…'
         )
+
+        # Направка уведомления админам о снижении остатков воды:
+        await send_message_when_water_left(bot, bootles_left)
 
         # Встать на паузу и отправить инструкцию, как сделать новую заявку:
         await asyncio.sleep(AWAIT_DISABLE_NOTIFICATION)
@@ -444,7 +440,7 @@ async def setup_bot(token: str) -> Bot:
     # Добавляем роутеры:
     url_for_get_list
     url_for_add_office
-
+    url_for_add_bootles
     return bot
 
 

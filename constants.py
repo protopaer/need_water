@@ -15,8 +15,11 @@ MAX_HOUR_IN_DAYS = 24
 
 # Количество бутылей (старт):
 BOOTLES_LEFT = 2  # важно указать правильное (фактическое) кол-во на старте 🔥
-MAX_BOOTLE_ACCEPT = 99
+CONSTANT_WATER_SUPPLY = 5  # неснижаемый минимальный запас
+
+# Количество бутылей в партии при поступлении:
 MIN_BOOTLE_ACCEPT = 1
+MAX_BOOTLE_ACCEPT = 150
 
 # Команды для действий:
 GET_LIST = '/get_list'

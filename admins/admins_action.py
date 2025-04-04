@@ -148,12 +148,6 @@ async def process_confirmation(
         # Админ подтвердил - сохраняем в БД:
         async with AsyncSessionLocal() as session:
             try:
-                # new_office = Offices(
-                #     abbr=data['office_abbr'],
-                #     name=data['office_name'],
-                #     office_number=data['office_number'],
-                #     build_id=data['build_id']
-                # )
                 new_office = create_office_object(data)
                 session.add(new_office)
                 await session.commit()

@@ -7,10 +7,11 @@ from datetime import time, datetime
 from typing import Optional, Union
 from zoneinfo import ZoneInfo
 
+from aiogram import Bot
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 from dotenv import load_dotenv
-from sqlalchemy import and_, or_, select, update
+from sqlalchemy import and_, insert, or_, select, update
 from sqlalchemy.orm import joinedload
 
 import smtplib
@@ -19,6 +20,7 @@ from email.mime.multipart import MIMEMultipart
 
 from constants import (ADD_BOOTLES,
                        API_PHONEBOOK_AWAIT,
+                       CONSTANT_WATER_SUPPLY,
                        FIRST_SECTION,
                        FIRST_SECTION_EMOJI,
                        GIVE_ME_ADDRESS_CODE,
@@ -333,6 +335,30 @@ async def check_user_today(session, tg_account_id, callback_query):
     return False
 
 
+async def create_new_order_in_db(
+    session,
+    office_id: int,
+    tg_account_id: int,
+    localized_time: datetime,
+    bootles_left: int
+) -> Order:
+    """
+    Формирует (создаёт) новую заявку для таблицы Order базы данных.
+    """
+    return await session.execute(
+        insert(Order)
+        .values(
+            office_id=office_id,
+            tg_account_id=tg_account_id,
+            order_date=localized_time.date(),
+            order_time=localized_time.time(),
+            in_archive=False,
+            bootles_left=bootles_left - 1
+        )
+        .returning(Order.id)
+    )
+
+
 async def collect_orders_for_interval(
     session, hour_find: int
 ) -> Optional[list]:
@@ -482,3 +508,29 @@ async def send_email(message):
                 server.quit()
             except smtplib.SMTPServerDisconnected:
                 logging.info('Подключение к серверу рассылки email разорвано.')
+
+
+async def send_message_when_water_left(bot: Bot, bootles_left) -> None:
+    """
+    Направление уведомлений админам о заканчивающейся воде.
+    """
+    if bootles_left <= CONSTANT_WATER_SUPPLY:
+        # Проверка наличия списка ТГ-аккаунтов админов в окружении:
+        admins_id = get_admins_account()
+        if not admins_id:
+            logging.error('Проблемы со списком админов.')
+            return
+
+        # Отправляем сообщения в ТГ-аккаунты админам:
+        for admin_id in admins_id:
+            try:
+                await bot.send_message(
+                    admin_id,
+                    f'Количество воды снизилось до {bootles_left} ед. '
+                    'Необходимо оформить новую заявку на партию воды.'
+                )
+                logging.info(
+                    'Админам направлено предупреждение об остатках воды.'
+                )
+            except Exception as e:
+                logging.error(f'Ошибка отправки: {e}')
