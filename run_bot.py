@@ -383,8 +383,14 @@ async def process_confirm_callback(callback_query: CallbackQuery, bot) -> None:
             'Ожидайте…'
         )
 
+        # # FIXME Есть ли какая-то разница, ведь сессия одна
+        # # Что если в это время был совершен еще один заказ (более быстрый)
+
+        # Считает кол-во воды опять:
+        bootles_left_again = await return_bootles(session)
+
         # Проверка и направление уведомления админам о снижении остатков воды:
-        await send_message_when_water_left(bot, bootles_left)
+        await send_message_when_water_left(bot, bootles_left_again)
 
         # Встать на паузу и отправить инструкцию, как сделать новую заявку:
         await asyncio.sleep(AWAIT_DISABLE_NOTIFICATION)
