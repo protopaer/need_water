@@ -28,6 +28,7 @@ MANIFEST
 launch.json
 dataset/
 database/
+test.py
 
 # PyInstaller
 #  Usually these files are written by a python script from a template

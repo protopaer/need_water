@@ -3,8 +3,9 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from constants import OFFICE_IN_LINE
+from filters import select_all_offices_in_build
 from function import get_favorite_office
-from models import Offices, Builds
+from models import Builds
 
 
 async def create_all_builds_keyboard(
@@ -57,11 +58,7 @@ async def create_all_offices_keyboard(session: AsyncSession, build_id: int):
     """
     Создает inline-клавиатуру с кабинетами выбранного здания и кнопкой ← .
     """
-    result = await session.execute(
-        select(Offices)
-        .where(Offices.build_id == build_id)
-        .order_by(func.lower(Offices.abbr))
-    )
+    result = await session.execute(select_all_offices_in_build(build_id))
     offices = result.scalars().all()
 
     rows = []

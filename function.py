@@ -12,8 +12,7 @@ from aiogram import Bot
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 from dotenv import load_dotenv
-from sqlalchemy import and_, insert, or_, select, update
-from sqlalchemy.orm import joinedload
+from sqlalchemy import insert, select
 
 import smtplib
 from email.mime.text import MIMEText
@@ -33,7 +32,14 @@ from constants import (ADD_BOOTLES,
                        NEXT_WEEKDAY_EMOJI,
                        SECTION_MINUTES,
                        SUCCESSFUL_AUTH_IN_SMTP_STATUS_CODE)
-from models import Offices, Order, TgAccounts
+from filters import (check_active_orders,
+                     check_active_orders_for_current_tg_account,
+                     check_tg_account_auth,
+                     find_last_office,
+                     joinedload_building_and_office_with_active_order,
+                     joinedload_last_office_with_auth_tg_account,
+                     transfers_orders_status_to_archive)
+from models import Offices, Order
 from users.users_fcm import RegistrationStates
 
 
@@ -146,12 +152,7 @@ async def check_authorization(session, message) -> bool:
     tg_account = str(message.chat.id)  # Аккаунт из запроса
 
     # Проверяем, есть ли запись в таблице TgAccounts
-    result = await session.execute(
-        select(TgAccounts).where(
-            TgAccounts.account == tg_account,
-            TgAccounts.blocked == False
-        )
-    )
+    result = await session.execute(check_tg_account_auth(tg_account))
     check_authorization = result.scalar_one_or_none()
 
     # Возвращаем True, если пользователь авторизован, иначе False
@@ -216,11 +217,8 @@ async def get_favorite_office(session, message) -> Optional[Offices]:
     """
     try:
         result = await session.execute(
-            select(TgAccounts)
-            .where(TgAccounts.account == str(message.chat.id))
-            .options(joinedload(TgAccounts.office))  # Жадная загрузка офиса
+            joinedload_last_office_with_auth_tg_account(message.chat.id)
         )
-
         user_account = result.scalar_one_or_none()
 
         # Возвращаем связанный офис (если есть):
@@ -240,11 +238,7 @@ async def return_office(session, office_id) -> Offices:
 
 async def return_last_order(session) -> Optional[Order]:
     """Возвращает крайний заказ."""
-    last_order = await session.scalar(
-        select(Order)
-        .order_by(Order.id.desc())  # Сортируем по ID в обратном порядке
-        .limit(1)                  # Берем только одну запись
-    )
+    last_order = await session.scalar(find_last_office())
     return last_order if last_order else None
 
 
@@ -281,18 +275,7 @@ async def check_order_today(session, office, callback_query):
     chat_user_id = create_user_attrs(callback_query.message)
 
     # Как правильно получать записи из БД в асинхроне?!?!?! Таких у меня дофига!
-    order = select(Order).where(
-        and_(
-            Order.office_id == office.id,
-            or_(
-                Order.in_archive == False,  # <-- проверяет выходный
-                and_(
-                    Order.order_date == today,  # <-- проверяет сегодня
-                    Order.in_archive == True
-                )
-            )
-        )
-    )
+    order = check_active_orders(office, today)
     result = await session.execute(order)
     existing_order = result.scalars().first()
 
@@ -319,12 +302,7 @@ async def check_user_today(session, tg_account_id, callback_query):
     chat_user_id = create_user_attrs(callback_query.message)
 
     result = await session.execute(
-        select(Order).where(
-            and_(
-                Order.tg_account_id == tg_account_id,  # Проверяем пользователя
-                Order.order_date == today
-            )
-        )
+        check_active_orders_for_current_tg_account(tg_account_id, today)
     )
     existing_user_order = result.scalars().first()
 
@@ -369,12 +347,7 @@ async def collect_orders_for_interval(
     """
     try:
         result = await session.execute(
-            select(Order)
-            .where(
-                Order.in_archive == False
-            ).options(
-                joinedload(Order.office).joinedload(Offices.building)
-            )
+            joinedload_building_and_office_with_active_order()
         )
         orders = result.scalars().all()
 
@@ -392,7 +365,11 @@ async def collect_orders_for_interval(
 
         formatted_orders = []
         for building, offices in sorted(buildings.items()):
-            formatted_orders.append(('-' * 41) + '\n' + f'Объект: {building}')
+            # Формируем шапку блока:
+            text_title = f'Объект: {building}'
+            formatted_orders.append(f'{"-" * len(text_title)}\n{text_title}')
+
+            # Формируем каждый блок:
             formatted_orders.extend(f'🫙 {office}' for office in offices)
 
         return formatted_orders
@@ -450,11 +427,7 @@ async def add_orgers_in_archive(session, hour):
     """
     Проставляет статус В АРХИВЕ заявкам после отправки сообщения админам.
     """
-    orders_in_archive = update(Order).where(
-        Order.in_archive == False
-    ).values(in_archive=True)
-
-    await session.execute(orders_in_archive)
+    await session.execute(transfers_orders_status_to_archive())
     await session.commit()
 
 
