@@ -25,6 +25,7 @@ from constants import (ADD_BOOTLES,
                        ERROR_WHEN_GET_CODE,
                        FIRST_SECTION,
                        FIRST_SECTION_EMOJI,
+                       GET_LIST,
                        GIVE_ME_ADDRESS_CODE,
                        OUR_TIMEZONE,
                        SECOND_SECTION,
@@ -391,9 +392,16 @@ async def parse_element_from_admin_message(
     """
     Захватывает указанное админом в message количество элементов.
     """
+    # Получение шаблона исходящего сообщения:
     text_in_message = {
         'hour': ('', 'час'),
         'bootles': (', чтобы привезли', 'бутылей сразу'),
+    }
+
+    # Поиск команды для паттерна re (можно расширить):
+    command = {
+        'hour': GET_LIST,
+        'bootles': ADD_BOOTLES
     }
 
     # Проверяем наличие элемента в ожидаемом словаре:
@@ -404,7 +412,7 @@ async def parse_element_from_admin_message(
     first_part_msg, second_part_msg = text_in_message[element]
 
     # Проверяем соответствие указанного числа ожидаемому диапазону:
-    pattern = fr'{ADD_BOOTLES}_(?P<{element}>\d+)$'
+    pattern = fr'{command[element]}_(?P<{element}>\d+)$'
     element_in_message = re.search(pattern, message.text)
 
     if not element_in_message:

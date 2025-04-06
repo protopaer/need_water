@@ -266,6 +266,7 @@ async def add_bootles_in_db(message: Message):
                 await message.answer('❌ Не найдено ни одного заказа')
                 return
 
+            # Количество бутылей уже должно быть указано (в последнем заказе):
             # Обновляем количество бутылей
             new_quantity = last_order.bootles_left + add_bootles
             await session.execute(
@@ -277,7 +278,7 @@ async def add_bootles_in_db(message: Message):
 
             # Отправляем подтверждение админу:
             await message.answer(
-                f'✅ Добавлено {add_bootles} бутылей. '
+                f'✅ Добавлено бутылей: {add_bootles}.\n'
                 f'Теперь общее количество: {new_quantity}'
             )
             logging.info(
