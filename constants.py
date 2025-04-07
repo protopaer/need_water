@@ -1,4 +1,11 @@
+import os
 from pathlib import Path
+
+from dotenv import load_dotenv
+
+
+load_dotenv()
+
 
 # Настройка графика работы:
 FIRST_SECTION = 10
@@ -14,8 +21,10 @@ MIN_HOUR_IN_DAYS = 0
 MAX_HOUR_IN_DAYS = 24
 
 # Количество бутылей (старт):
-BOOTLES_LEFT = 2  # важно указать правильное (фактическое) кол-во на старте 🔥
-CONSTANT_WATER_SUPPLY = 5  # неснижаемый минимальный запас
+# 🔥 важно указать правильное (фактическое) кол-во на старте:
+BOOTLES_LEFT = os.getenv('bootles_left')
+# Неснижаемый минимальный запас:
+CONSTANT_WATER_SUPPLY = os.getenv('constant_water_supply')
 
 # Количество бутылей в партии при поступлении:
 MIN_BOOTLE_ACCEPT = 1
