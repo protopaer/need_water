@@ -25,6 +25,8 @@ MAX_HOUR_IN_DAYS = 24
 BOOTLES_LEFT = int(os.getenv('bootles_left'))
 # Неснижаемый минимальный запас:
 CONSTANT_WATER_SUPPLY = int(os.getenv('constant_water_supply'))
+# Когда пользователи начинают грустить:
+BOOTLES_ZERO = 0
 
 # Количество бутылей в партии при поступлении:
 MIN_BOOTLE_ACCEPT = 1

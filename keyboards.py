@@ -1,10 +1,12 @@
+from random import choice
+from typing import Optional
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from constants import OFFICE_IN_LINE
+from constants import BOOTLES_ZERO, OFFICE_IN_LINE, SORRY
 from filters import select_all_offices_in_build
-from function import get_favorite_office
+from function import get_favorite_office, return_bootles
 from models import Builds
 
 
@@ -12,13 +14,17 @@ async def create_all_builds_keyboard(
     session,
     check_favorite=False,
     **kwargs
-) -> InlineKeyboardMarkup:
+) -> Optional[InlineKeyboardMarkup]:
     """
     Создает клавиатуру со списком зданий.
     """
-
     message = kwargs.get('message')  # <-- забыл зачем сделал так!
     path = kwargs.get('path')
+
+    # Проверка, что вода доступна для заказа или ответ «извините»:
+    if await return_bootles(session) == BOOTLES_ZERO and message:
+        await message.answer(f'❌ {choice(SORRY)}')
+        return None
 
     # Создаем заготовку кнопок:
     buttons = []

@@ -4,7 +4,6 @@ import fcntl
 import logging
 import os
 import sys
-from random import choice
 
 from aiogram import Bot
 from aiogram.exceptions import TelegramConflictError
@@ -30,7 +29,6 @@ from constants import (AWAIT_DISABLE_NOTIFICATION,
                        REPEAT_TEXT, RULES,
                        SECOND_SECTION,
                        SECTION_MINUTES,
-                       SORRY,
                        START_AGAIN_BUILD,
                        START_AGAIN_OFFICE,
                        START_TEXT,
@@ -172,19 +170,19 @@ async def command_start_handler(message: Message, state: FSMContext) -> None:
             if not await start_registration(message, state):
                 return  # Прерываем (если регистрация не завершена)
 
-        # Проверка, что вода доступна для заказа или ответ «извините»:
-        if await return_bootles(session) == 0:
-            await message.answer(f'❌ {choice(SORRY)}')
-            return
-
-        # FIXME попробовать убрать favorite_office:
-        favorite_office = await get_favorite_office(session, message)
-
         keyboard = await create_all_builds_keyboard(
             session,
             check_favorite=True,
             message=message,
             path='building')
+
+        # Клавиатура не будет сформирована, если воды нет:
+        if not keyboard:
+            return
+
+        # FIXME попробовать убрать favorite_office:
+        # эта проверка уже есть внутри функции get_favorite_office
+        favorite_office = await get_favorite_office(session, message)
 
         # FIXME если уберу favorite_office - надо переделать это:
         all_text = START_TEXT if favorite_office is None else (
@@ -229,12 +227,18 @@ async def process_code(message: Message, state: FSMContext) -> None:
             logging.info(
                 f'{user_in_chat} успешно авторизовался и сохранен в базе'
             )
+
             keyboard = await create_all_builds_keyboard(
                 session,
                 check_favorite=True,
                 message=message,
                 path='building'
             )
+
+            # Клавиатура не будет сформирована, если воды нет:
+            if not keyboard:
+                return
+
             # Сбрасываем состояние
             await state.clear()
             await message.answer(START_TEXT, reply_markup=keyboard)
