@@ -5,10 +5,16 @@ from constants import ENCODING_IN_UTF
 from models import Builds, Offices
 
 
-def create_office_object(data) -> Offices:
-    """Создает объект Кабинета."""
+def create_office_object(data, need_id=False) -> Offices:
+    """
+    Создает объект Кабинета.
+
+    Detail: при загрузке кабинетов из cvs (начальная загрузка) -
+    добавлено получение id из файла (поскольку была нарушена
+    последовательность) при наполнении production
+    """
     return Offices(
-        id=int(data['id']),
+        id=int(data['id']) if need_id else None,
         abbr=data['office_abbr'],
         name=data['office_name'],
         office_number=int(data['office_number']),
@@ -31,7 +37,7 @@ async def load_object_in_db(object, dataname):
     async with AsyncSessionLocal() as session:
         try:
             if dataname == 'office':
-                object = create_office_object(object)
+                object = create_office_object(object, need_id=True)
                 text_for_log = 'Кабинета'
             elif dataname == 'build':
                 object = create_build_object(object)
