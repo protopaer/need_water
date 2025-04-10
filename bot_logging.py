@@ -43,7 +43,7 @@ def configure_logging():
 
     # Создаем кастомный форматтер с часовой зоной
     formatter = TimezoneFormatter(
-        fmt='%(asctime)s | %(name)25s | %(levelname)17s >>> %(message)s',
+        fmt='%(asctime)s | %(name)25s | %(levelname)10s || %(message)s',
         datefmt=CUSTOM_TIME_FORMAT,
     )
     rotating_handler.setFormatter(formatter)
