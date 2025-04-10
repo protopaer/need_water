@@ -35,13 +35,24 @@ def configure_logging():
 
     # Создаем кастомный форматтер с часовой зоной
     formatter = TimezoneFormatter(
-        fmt='%(asctime)s [ %(name)15s ] %(levelname)s >>> %(message)s',
+        fmt='%(asctime)s [ %(name)25s ] %(levelname)12s >>> %(message)s',
         datefmt=CUSTOM_TIME_FORMAT,
         tz=pytz.timezone(OUR_TIMEZONE)
     )
     rotating_handler.setFormatter(formatter)
 
-    logging.basicConfig(
-        level=logging.INFO,
-        handlers=[rotating_handler],
+    # Получаем корневой логгер
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+
+    # Удаляем все существующие обработчики
+    for handler in logger.handlers[:]:
+        logger.removeHandler(handler)
+
+    # Добавляем наш обработчик
+    logger.addHandler(rotating_handler)
+
+    # Пример лога для проверки
+    logger.info(
+        'Логгирование успешно настроено с часовой зоной %s', OUR_TIMEZONE
     )
