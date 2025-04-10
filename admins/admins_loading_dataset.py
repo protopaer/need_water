@@ -8,7 +8,7 @@ from models import Builds, Offices
 def create_office_object(data) -> Offices:
     """Создает объект Кабинета."""
     return Offices(
-        # id=int(data['id']),
+        id=int(data['id']),
         abbr=data['office_abbr'],
         name=data['office_name'],
         office_number=int(data['office_number']),
@@ -19,7 +19,7 @@ def create_office_object(data) -> Offices:
 def create_build_object(data) -> Builds:
     """Создает объект Здания."""
     return Builds(
-        # id=int(data['id']),
+        id=int(data['id']),
         name=data['name'],
     )
 
