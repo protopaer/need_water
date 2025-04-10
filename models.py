@@ -46,6 +46,7 @@ class Offices(Base):
     """Модель кабинетов."""
     abbr = Column(String(ABBR_OFFICE_COUNT), nullable=False)
     name = Column(String(NAME_OFFICE_COUNT), nullable=False)
+    # FIXME это не очень, получается он может быть пустым и(или) не уникальным:
     office_number = Column(Integer, nullable=True)
     build_id = Column(Integer, ForeignKey('builds.id'), nullable=False)
 
