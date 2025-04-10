@@ -52,6 +52,7 @@ LOG_DIR = Path(f'{BASE_DIR}/logs')
 LOG_FILE = Path(f'{LOG_DIR}/logging_tg_water_bot.log')
 MAX_BYTES_FOR_LOG_FILE = 10 ** 6
 BACKUP_COUNT = 5
+CUSTOM_TIME_FORMAT = '%Y-%m-%d %H:%M:%S'
 
 # Длина символов в базе данных:
 ABBR_OFFICE_COUNT = 30
