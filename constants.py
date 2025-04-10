@@ -35,6 +35,7 @@ MAX_BOOTLE_ACCEPT = 150
 # Команды для действий:
 GET_LIST = '/get_list'
 ADD_BOOTLES = '/add_bootles'
+DELETE_OFFICE = '/delete_office'
 ADD_OFFICE = 'add_office'
 ADD_BUILD = 'add_build'
 

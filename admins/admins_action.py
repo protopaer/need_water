@@ -11,8 +11,8 @@ from admins.admins_fcm import AddOfficeStates, AddBuildStates
 from admins.admins_loading_dataset import create_office_object
 from config import AsyncSessionLocal, dp
 from constants import (ABBR_OFFICE_COUNT, ADD_BOOTLES, ADD_BUILD, ADD_OFFICE,
-                       GET_LIST, MAX_BOOTLE_ACCEPT, MAX_HOUR_IN_DAYS,
-                       MIN_BOOTLE_ACCEPT, MIN_HOUR_IN_DAYS,
+                       GET_LIST, DELETE_OFFICE, MAX_BOOTLE_ACCEPT,
+                       MAX_HOUR_IN_DAYS, MIN_BOOTLE_ACCEPT, MIN_HOUR_IN_DAYS,
                        NAME_OFFICE_COUNT, NAME_BUILD_COUNT)
 from function import (collect_orders_for_interval,
                       get_id_from_callback_query,
@@ -297,48 +297,50 @@ async def add_bootles_in_db(message: Message):
             )
 
 
-@router_delete_office.message(F.text.regexp(r'^/delete_office_(\d+)$'))
+@router_delete_office.message(F.text.regexp(rf'^{DELETE_OFFICE}_(\d+)$'))
 async def delete_office_by_id(message: Message) -> None:
     """
-    Удаление кабинета по ID через команду /delete_office_<id> .
+    Удаление кабинета по его номеру через команду /delete_office_<id> .
     """
     async with AsyncSessionLocal() as session:
         try:
-            # Извлечение и валидация ID
-            office_id: Optional[int] = None
+            # Извлечение и валидация номера кабинета:
+            office_number: Optional[int] = None
             try:
-                office_id = int(message.text.split('_')[-1])
-                if office_id <= 0:
-                    raise ValueError('ID должен быть положительным числом')
+                office_number = int(message.text.split('_')[-1])
+                if office_number <= 0:
+                    raise ValueError('Номер должен быть положительным числом')
             except (IndexError, ValueError):
                 await message.answer('❌ Неверный формат команды')
                 return
 
-            # Проверка существования офиса
+            # Проверка существования кабинета:
             existing_office = await session.scalar(
-                select(Offices).where(Offices.id == office_id)
+                select(Offices).where(Offices.office_number == office_number)
             )
             if not existing_office:
-                await message.answer(f'❌ Офис с ID {office_id} не найден!')
+                await message.answer(f'❌ Кабинет №{office_number} не найден!')
                 return
 
-            # Удаление офиса
+            # Удаление кабинета:
             await session.execute(
-                delete(Offices).where(Offices.id == office_id)
+                delete(Offices).where(Offices.office_number == office_number)
             )
             await session.commit()
 
             await message.answer(
-                f'✅ Офис "{existing_office.name}" (ID: {office_id}) '
+                f'✅ Кабинет "{existing_office.name}" (№{office_number}) '
                 'успешно удалён!'
             )
             logging.info(
-                f'Юзер {message.from_user.id} удалил кабинет {office_id}'
+                f'UserID {message.from_user.id} удалил кабинет {office_number}'
             )
 
         except Exception as e:
             await session.rollback()
-            error_msg = f'🚨 Ошибка при удалении офиса ID {office_id}: {str(e)}'
+            error_msg = (
+                f'🚨 Ошибка при удалении кабинета №{office_number}: {str(e)}'
+            )
             logging.error(error_msg)
             await message.answer('❌ Произошла ошибка при выполнении операции')
 
