@@ -160,6 +160,18 @@ async def check_authorization(session, message) -> bool:
     return False if check_authorization is None else True
 
 
+async def check_user_in_admins_list(trigger) -> bool:
+    """
+    Проверяет, является ли Пользователь администратором.
+    """
+    if not (admins_id := get_admins_account()):
+        return False
+    if trigger.from_user.id not in admins_id:
+        await trigger.answer('❌ Недостаточно прав')
+        return False
+    return True
+
+
 async def generate_code_for_registration_and_waiting_answer(
     message: Message,
     state: FSMContext,
@@ -341,7 +353,7 @@ async def create_new_order_in_db(
 
 
 async def collect_orders_for_interval(
-    session, hour_find: int
+    session, hour_find: Optional[int] = None
 ) -> Optional[list]:
     """
     Формируем список заявок по времени и выдает их список или ничего.

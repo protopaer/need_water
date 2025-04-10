@@ -1,5 +1,6 @@
 import logging
 from typing import Optional
+from zoneinfo import ZoneInfo
 
 from aiogram import F, Router
 from aiogram.filters import Command
@@ -11,10 +12,9 @@ from admins.admins_fcm import AddOfficeStates, AddBuildStates
 from admins.admins_loading_dataset import create_office_object
 from config import AsyncSessionLocal, dp
 from constants import (ABBR_OFFICE_COUNT, ADD_BOOTLES, ADD_BUILD, ADD_OFFICE,
-                       GET_LIST, DELETE_OFFICE, MAX_BOOTLE_ACCEPT,
-                       MAX_HOUR_IN_DAYS, MIN_BOOTLE_ACCEPT, MIN_HOUR_IN_DAYS,
-                       NAME_OFFICE_COUNT, NAME_BUILD_COUNT)
-from function import (collect_orders_for_interval,
+                       DELETE_OFFICE, MAX_BOOTLE_ACCEPT, MIN_BOOTLE_ACCEPT,
+                       NAME_OFFICE_COUNT, NAME_BUILD_COUNT, OUR_TIMEZONE)
+from function import (check_user_in_admins_list, collect_orders_for_interval,
                       get_id_from_callback_query,
                       format_orders_message,
                       parse_element_from_admin_message,
@@ -38,6 +38,11 @@ url_for_delete_office = dp.include_router(router_delete_office)
 # Обработчик команды /add_office
 @router_add_office.message(Command(f'{ADD_OFFICE}'))
 async def command_add_office(message: Message, state: FSMContext) -> None:
+
+    # Проверяем права администратора:
+    if not await check_user_in_admins_list(trigger=message):
+        return
+
     await message.answer(
         f'Введите аббревиатуру кабинета (до {ABBR_OFFICE_COUNT} символов):'
     )
@@ -183,6 +188,11 @@ async def command_add_build(message: Message, state: FSMContext) -> None:
     """
     Обработчик комманды Админа по добавлению Здания.
     """
+
+    # Проверяем права администратора:
+    if not await check_user_in_admins_list(trigger=message):
+        return
+
     await message.answer(
         f'Введите название здания (до {NAME_BUILD_COUNT} символов):'
     )
@@ -212,31 +222,25 @@ async def process_build_name(message: Message, state: FSMContext) -> None:
     await state.clear()
 
 
-@router_get_list.message(
-    lambda message: message.text.startswith(f'{GET_LIST}_')
-)
+# -----------------------------------------------------------------------------
+
+
+@router_get_list.message(Command('get_list'))
 async def list_orders_handler(message: Message) -> None:
     """
-    Обработка команды Админа вручную направить список Заявок ко времени.
+    Обработка команды вручную направить список активных Заявок.
     """
     async with AsyncSessionLocal() as session:
 
-        hour_find = await parse_element_from_admin_message(
-            message,
-            'hour',
-            MIN_HOUR_IN_DAYS,
-            MAX_HOUR_IN_DAYS
-        )
-        if not hour_find:
-            return
+        # Собираем данные (час запроса и user_id):
+        message_date = message.date.astimezone(ZoneInfo(OUR_TIMEZONE)).hour
+        user_id = message.from_user.id
 
-        orders_list = await collect_orders_for_interval(session, hour_find)
-        text_in_message = format_orders_message(hour_find, orders_list)
+        orders_list = await collect_orders_for_interval(session)
+        text_in_message = format_orders_message(message_date, orders_list)
 
         await message.answer(text_in_message)
-        logging.info(
-            f'Админ вручную запросил список заявок для {hour_find} часов'
-        )
+        logging.info(f'{user_id} вручную запросил список активных заявок')
 
 
 # -----------------------------------------------------------------------------
@@ -250,6 +254,10 @@ async def add_bootles_in_db(message: Message):
     Добавляем поступление бутылей к их фактическому количеству.
     """
     async with AsyncSessionLocal() as session:
+
+        # Проверяем права администратора:
+        if not await check_user_in_admins_list(trigger=message):
+            return
 
         try:
             # Парсим количество бутылей из сообщения
@@ -303,6 +311,11 @@ async def delete_office_by_id(message: Message) -> None:
     Удаление кабинета по его номеру через команду /delete_office_<id> .
     """
     async with AsyncSessionLocal() as session:
+
+        # Проверяем права администратора:
+        if not await check_user_in_admins_list(trigger=message):
+            return
+
         try:
             # Извлечение и валидация номера кабинета:
             office_number: Optional[int] = None
