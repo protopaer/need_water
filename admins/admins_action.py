@@ -1,10 +1,11 @@
 import logging
+from typing import Optional
 
-from aiogram import Router
+from aiogram import F, Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, CallbackQuery
-from sqlalchemy import update
+from sqlalchemy import select, update, delete
 
 from admins.admins_fcm import AddOfficeStates, AddBuildStates
 from admins.admins_loading_dataset import create_office_object
@@ -19,18 +20,19 @@ from function import (collect_orders_for_interval,
                       parse_element_from_admin_message,
                       return_last_order)
 from keyboards import create_all_builds_keyboard, confirm_def_keyboard
-from models import Builds, Order
+from models import Builds, Order, Offices
 
 
 # Создание роутеров для команд администратора и регистрация в диспетчере:
 router_add_office = Router()
 router_get_list = Router()
 router_add_bootles = Router()
-
+router_delete_office = Router()
 
 url_for_add_office = dp.include_router(router_add_office)
 url_for_get_list = dp.include_router(router_get_list)
 url_for_add_bootles = dp.include_router(router_add_bootles)
+url_for_delete_office = dp.include_router(router_delete_office)
 
 
 # Обработчик команды /add_office
@@ -293,3 +295,52 @@ async def add_bootles_in_db(message: Message):
             logging.error(
                 f'Ошибка в add_bootles_in_db: {str(e)}', exc_info=True
             )
+
+
+@router_delete_office.message(F.text.regexp(r'^/delete_office_(\d+)$'))
+async def delete_office_by_id(message: Message) -> None:
+    """
+    Удаление кабинета по ID через команду /delete_office_<id> .
+    """
+    async with AsyncSessionLocal() as session:
+        try:
+            # Извлечение и валидация ID
+            office_id: Optional[int] = None
+            try:
+                office_id = int(message.text.split('_')[-1])
+                if office_id <= 0:
+                    raise ValueError('ID должен быть положительным числом')
+            except (IndexError, ValueError):
+                await message.answer('❌ Неверный формат команды')
+                return
+
+            # Проверка существования офиса
+            existing_office = await session.scalar(
+                select(Offices).where(Offices.id == office_id)
+            )
+            if not existing_office:
+                await message.answer(f'❌ Офис с ID {office_id} не найден!')
+                return
+
+            # Удаление офиса
+            await session.execute(
+                delete(Offices).where(Offices.id == office_id)
+            )
+            await session.commit()
+
+            await message.answer(
+                f'✅ Офис "{existing_office.name}" (ID: {office_id}) '
+                'успешно удалён!'
+            )
+            logging.info(
+                f'Юзер {message.from_user.id} удалил кабинет {office_id}'
+            )
+
+        except Exception as e:
+            await session.rollback()
+            error_msg = f'🚨 Ошибка при удалении офиса ID {office_id}: {str(e)}'
+            logging.error(error_msg)
+            await message.answer('❌ Произошла ошибка при выполнении операции')
+
+        finally:
+            await session.close()

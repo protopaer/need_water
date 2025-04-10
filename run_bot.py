@@ -16,7 +16,8 @@ from sqlalchemy import insert, update
 
 from admins.admins_action import (url_for_add_office,
                                   url_for_get_list,
-                                  url_for_add_bootles)
+                                  url_for_add_bootles,
+                                  url_for_delete_office)
 from admins.admins_loading_dataset import all_upload
 from bot_logging import configure_logging
 from config import AsyncSessionLocal, dp, engine, scheduler
@@ -444,6 +445,7 @@ async def setup_bot(token: str) -> Bot:
     url_for_get_list
     url_for_add_office
     url_for_add_bootles
+    url_for_delete_office
     return bot
 
 
