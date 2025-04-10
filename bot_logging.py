@@ -1,58 +1,70 @@
 import logging
-import pytz
 from logging.handlers import RotatingFileHandler
-from datetime import datetime
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 from constants import (BACKUP_COUNT, CUSTOM_TIME_FORMAT, LOG_FILE, LOG_DIR,
                        MAX_BYTES_FOR_LOG_FILE, OUR_TIMEZONE)
 
 
 class TimezoneFormatter(logging.Formatter):
-    """Кастомный форматтер с поддержкой часовых зон"""
+    """Modern timezone-aware formatter using zoneinfo"""
     def __init__(self, fmt=None, datefmt=None, tz=None):
         super().__init__(fmt, datefmt)
-        self.tz = tz or pytz.timezone(OUR_TIMEZONE)
+        self.tz = ZoneInfo(OUR_TIMEZONE) if tz is None else tz
 
     def converter(self, timestamp):
-        """Конвертирует timestamp в datetime с учетом часовой зоны"""
-        dt = datetime.fromtimestamp(timestamp)
-        return self.tz.localize(dt)
+        """
+        Конвертирует timestamp в формат timezone-aware datetime.
+        """
+        return (
+            datetime.fromtimestamp(timestamp, timezone.utc).astimezone(self.tz)
+        )
 
     def formatTime(self, record, datefmt=None):
-        """Форматирует время с учетом часовой зоны"""
+        """
+        Форматирует время в нужной таймзоне.
+        """
         dt = self.converter(record.created)
         if datefmt:
             return dt.strftime(datefmt)
-        else:
-            return dt.isoformat()
+        return dt.isoformat()
 
 
 def configure_logging():
     LOG_DIR.mkdir(exist_ok=True)
+
     rotating_handler = RotatingFileHandler(
-        LOG_FILE, maxBytes=MAX_BYTES_FOR_LOG_FILE, backupCount=BACKUP_COUNT
+        LOG_FILE,
+        maxBytes=MAX_BYTES_FOR_LOG_FILE,
+        backupCount=BACKUP_COUNT,
+        encoding='utf-8'
     )
 
     # Создаем кастомный форматтер с часовой зоной
     formatter = TimezoneFormatter(
-        fmt='%(asctime)s [ %(name)25s ] %(levelname)12s >>> %(message)s',
+        fmt='%(asctime)s | %(name)25s | %(levelname)17s >>> %(message)s',
         datefmt=CUSTOM_TIME_FORMAT,
-        tz=pytz.timezone(OUR_TIMEZONE)
     )
     rotating_handler.setFormatter(formatter)
 
     # Получаем корневой логгер
-    logger = logging.getLogger()
-    logger.setLevel(logging.INFO)
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.INFO)
 
     # Удаляем все существующие обработчики
-    for handler in logger.handlers[:]:
-        logger.removeHandler(handler)
+    for handler in root_logger.handlers[:]:
+        root_logger.removeHandler(handler)
+        handler.close()
 
     # Добавляем наш обработчик
-    logger.addHandler(rotating_handler)
+    root_logger.addHandler(rotating_handler)
 
-    # Пример лога для проверки
-    logger.info(
-        'Логгирование успешно настроено с часовой зоной %s', OUR_TIMEZONE
+    # Тестовый лог с проверкой временной зоны
+    test_time = datetime.now(ZoneInfo(OUR_TIMEZONE))
+    test_time_now = test_time.strftime(CUSTOM_TIME_FORMAT)
+
+    logging.info(
+        f'Проверка часовой зоны - текущее время {test_time_now} '
+        f'(часовая зона: {OUR_TIMEZONE})'
     )
