@@ -240,7 +240,7 @@ async def list_orders_handler(message: Message) -> None:
         user_id = message.from_user.id
 
         orders_list = await collect_orders_for_interval(session)
-        text_in_message = format_orders_message(message_date, orders_list)
+        text_in_message = format_orders_message(message_date + 1, orders_list)
 
         await message.answer(text_in_message)
         logging.info(f'{user_id} вручную запросил список активных заявок')
