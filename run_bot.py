@@ -17,7 +17,8 @@ from sqlalchemy import insert, update
 from admins.admins_action import (url_for_add_office,
                                   url_for_get_list,
                                   url_for_add_bootles,
-                                  url_for_delete_office)
+                                  url_for_delete_office,
+                                  url_for_total_bootles)
 from admins.admins_loading_dataset import all_upload
 from bot_logging import configure_logging
 from config import AsyncSessionLocal, dp, engine, scheduler
@@ -39,7 +40,8 @@ from function import (add_orgers_in_archive,
                       check_order_today,
                       check_user_today,
                       check_authorization,
-                      collect_orders_for_interval, create_new_order_in_db,
+                      collect_orders_for_interval,
+                      create_new_order_in_db,
                       create_user_attrs,
                       format_orders_message,
                       get_admins_account,
@@ -50,7 +52,8 @@ from function import (add_orgers_in_archive,
                       get_workday_or_not,
                       return_bootles,
                       return_office,
-                      send_email, send_message_when_water_left,
+                      send_email,
+                      send_message_when_water_left,
                       start_registration)
 from keyboards import (create_all_builds_keyboard,
                        create_all_offices_keyboard,
@@ -446,6 +449,7 @@ async def setup_bot(token: str) -> Bot:
     url_for_add_office
     url_for_add_bootles
     url_for_delete_office
+    url_for_total_bootles
     return bot
 
 

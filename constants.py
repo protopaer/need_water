@@ -23,9 +23,9 @@ MAX_HOUR_IN_DAYS = 24
 # Количество бутылей (старт):
 # 🔥 важно указать правильное (фактическое) кол-во на старте:
 BOOTLES_LEFT = int(os.getenv('bootles_left'))
-# Неснижаемый минимальный запас:
+# Порог для получения уведомлений админами):
 CONSTANT_WATER_SUPPLY = int(os.getenv('constant_water_supply'))
-# Когда пользователи начинают грустить:
+# Когда пользователи начинают грустить (Неснижаемый минимальный запас):
 BOOTLES_ZERO = 0
 
 # Количество бутылей в партии при поступлении:
@@ -35,6 +35,7 @@ MAX_BOOTLE_ACCEPT = 150
 # Команды для действий:
 GET_LIST = '/get_list'
 ADD_BOOTLES = '/add_bootles'
+TOTAL_BOOTLES = '/total_bootles'
 DELETE_OFFICE = '/delete_office'
 ADD_OFFICE = 'add_office'
 ADD_BUILD = 'add_build'

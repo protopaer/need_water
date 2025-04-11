@@ -12,8 +12,9 @@ from admins.admins_fcm import AddOfficeStates, AddBuildStates
 from admins.admins_loading_dataset import create_office_object
 from config import AsyncSessionLocal, dp
 from constants import (ABBR_OFFICE_COUNT, ADD_BOOTLES, ADD_BUILD, ADD_OFFICE,
-                       DELETE_OFFICE, MAX_BOOTLE_ACCEPT, MIN_BOOTLE_ACCEPT,
-                       NAME_OFFICE_COUNT, NAME_BUILD_COUNT, OUR_TIMEZONE)
+                       BOOTLES_ZERO, CONSTANT_WATER_SUPPLY, DELETE_OFFICE,
+                       MAX_BOOTLE_ACCEPT, MIN_BOOTLE_ACCEPT, NAME_OFFICE_COUNT,
+                       NAME_BUILD_COUNT, OUR_TIMEZONE, TOTAL_BOOTLES)
 from function import (check_user_in_admins_list, collect_orders_for_interval,
                       get_id_from_callback_query,
                       format_orders_message,
@@ -28,11 +29,13 @@ router_add_office = Router()
 router_get_list = Router()
 router_add_bootles = Router()
 router_delete_office = Router()
+router_total_bootles = Router()
 
 url_for_add_office = dp.include_router(router_add_office)
 url_for_get_list = dp.include_router(router_get_list)
 url_for_add_bootles = dp.include_router(router_add_bootles)
 url_for_delete_office = dp.include_router(router_delete_office)
+url_for_total_bootles = dp.include_router(router_total_bootles)
 
 
 # Обработчик команды /add_office
@@ -359,3 +362,36 @@ async def delete_office_by_id(message: Message) -> None:
 
         finally:
             await session.close()
+
+
+@router_total_bootles.message(F.text.regexp(rf'^{TOTAL_BOOTLES}$'))
+async def get_total_bootles(message: Message) -> None:
+    """
+    Показывает текущее количество бутылей на складе.
+
+    Для админа - сообщение расширенное.
+    Для пользователя - выводится кол-во бутылей за минусом минимального запаса.
+    """
+    async with AsyncSessionLocal() as session:
+        last_order = await return_last_order(session)
+
+        if last_order:
+            total_for_admin = last_order.bootles_left
+            total_for_user = total_for_admin - BOOTLES_ZERO
+
+            # Проверяем права администратора:
+            if not await check_user_in_admins_list(
+                trigger=message, built_in_msg=False
+            ):
+                msg = f'🫙 Общее кол-во бутылей: {total_for_user}'
+            else:
+                msg = (
+                    f'🫙 Общее кол-во бутылей: {total_for_admin}\n'
+                    f'⏏️ Неснижаемый запас: {BOOTLES_ZERO}\n'
+                    '📨 Поступление уведомлений админам - при снижении до '
+                    f'{CONSTANT_WATER_SUPPLY}'
+                )
+        else:
+            # FIXME: заглушка на старте
+            msg = 'Отсутствует последний заказ.'
+        await message.answer(msg)

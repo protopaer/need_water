@@ -160,14 +160,15 @@ async def check_authorization(session, message) -> bool:
     return False if check_authorization is None else True
 
 
-async def check_user_in_admins_list(trigger) -> bool:
+async def check_user_in_admins_list(trigger, built_in_msg=True) -> bool:
     """
     Проверяет, является ли Пользователь администратором.
     """
     if not (admins_id := get_admins_account()):
         return False
     if trigger.from_user.id not in admins_id:
-        await trigger.answer('❌ Недостаточно прав')
+        if built_in_msg:
+            await trigger.answer('❌ Недостаточно прав')
         return False
     return True
 
