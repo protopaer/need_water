@@ -9,7 +9,7 @@ from aiogram import Bot
 from aiogram.exceptions import TelegramConflictError
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
-from aiogram.types import Message, CallbackQuery
+from aiogram.types import Message, CallbackQuery, FSInputFile
 from aiogram.utils.backoff import BackoffConfig
 from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy import insert, update
@@ -61,6 +61,11 @@ from keyboards import (create_all_builds_keyboard,
                        remove_keyboard)
 from models import Base, Offices, TgAccounts
 from users.users_fcm import RegistrationStates
+
+
+all_media_dir = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), 'image'
+)
 
 
 async def on_startup(bot: Bot):
@@ -194,6 +199,20 @@ async def command_start_handler(message: Message, state: FSMContext) -> None:
         )
 
         await message.answer(all_text, reply_markup=keyboard)
+
+
+@dp.message(Command('map'))
+async def send_photo(message: Message):
+    try:
+        map_atu = FSInputFile(path=os.path.join(all_media_dir, 'bashik.jpg'))
+        await message.answer_photo(
+            photo=map_atu,
+            caption='Схема подъехала:'
+        )
+    except FileNotFoundError:
+        await message.answer('Схема не найдена. Проверьте путь к файлу!')
+    except Exception as e:
+        await message.answer(f"Произошла ошибка: {str(e)}")
 
 
 @dp.message(Command('rules'))
