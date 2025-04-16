@@ -13,7 +13,7 @@ from admins.admins_loading_dataset import create_office_object
 from config import AsyncSessionLocal, dp
 from constants import (ABBR_OFFICE_COUNT, ADD_BOOTLES, ADD_BUILD, ADD_OFFICE,
                        BOOTLES_ZERO, CONSTANT_WATER_SUPPLY, DELETE_BOOTLES,
-                       DELETE_OFFICE, MAX_BOOTLE_ACCEPT, MIN_BOOTLE_ACCEPT,
+                       DELETE_OFFICE, DELETE_ORDER, MAX_BOOTLE_ACCEPT, MIN_BOOTLE_ACCEPT,
                        MIN_BOOTLE_DELETE, NAME_OFFICE_COUNT,
                        NAME_BUILD_COUNT, OUR_TIMEZONE, TOTAL_BOOTLES)
 from function import (check_user_in_admins_list, collect_orders_for_interval,
@@ -32,6 +32,7 @@ router_add_bootles = Router()
 router_delete_bootles = Router()
 router_delete_office = Router()
 router_total_bootles = Router()
+router_delete_order = Router()
 
 url_for_add_office = dp.include_router(router_add_office)
 url_for_get_list = dp.include_router(router_get_list)
@@ -39,6 +40,7 @@ url_for_add_bootles = dp.include_router(router_add_bootles)
 url_for_delete_bootles = dp.include_router(router_delete_bootles)
 url_for_delete_office = dp.include_router(router_delete_office)
 url_for_total_bootles = dp.include_router(router_total_bootles)
+url_for_delete_order = dp.include_router(router_delete_order)
 
 
 # Обработчик команды /add_office
@@ -462,3 +464,59 @@ async def get_total_bootles(message: Message) -> None:
             # FIXME: заглушка на старте
             msg = 'Отсутствует последний заказ.'
         await message.answer(msg)
+
+
+@url_for_delete_order.message(F.text.regexp(rf'^{DELETE_ORDER}_(\d+)$'))
+async def delete_order_by_id(message: Message) -> None:
+    """
+    Удаление заявки по его номеру через команду /delete_order_<id> .
+    """
+    async with AsyncSessionLocal() as session:
+
+        # Проверяем права администратора:
+        if not await check_user_in_admins_list(trigger=message):
+            return
+
+        try:
+            # Извлечение и валидация номера кабинета:
+            order_number: Optional[int] = None
+            try:
+                order_number = int(message.text.split('_')[-1])
+                if order_number <= 0:
+                    raise ValueError('Номер должен быть положительным числом')
+            except (IndexError, ValueError):
+                await message.answer('❌ Неверный формат команды')
+                return
+
+            # Проверка существования заказа с данным номером (id):
+            existing_order = await session.scalar(
+                select(Order).where(Order.id == order_number)
+            )
+            if not existing_order:
+                await message.answer(f'❌ Заказ №{order_number} не найден!')
+                return
+
+            # Удаление заказа:
+            await session.execute(
+                delete(Order).where(Order.id == order_number)
+            )
+            await session.commit()
+
+            await message.answer(
+                f'✅ Заказ №{existing_order.id} успешно удалён!'
+            )
+            logging.info(
+                f'UserID {message.from_user.id} '
+                f'удалил заказ {existing_order.id}'
+            )
+
+        except Exception as e:
+            await session.rollback()
+            error_msg = (
+                f'🚨 Ошибка при удалении заказа №{order_number}: {str(e)}'
+            )
+            logging.error(error_msg)
+            await message.answer('❌ Произошла ошибка при выполнении операции')
+
+        finally:
+            await session.close()

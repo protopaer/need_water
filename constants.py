@@ -39,6 +39,7 @@ MIN_BOOTLE_DELETE = 1
 GET_LIST = '/get_list'
 ADD_BOOTLES = '/plus'
 DELETE_BOOTLES = '/minus'
+DELETE_ORDER = '/delete_order'
 TOTAL_BOOTLES = '/total_bootles'
 DELETE_OFFICE = '/delete_office'
 ADD_OFFICE = 'add_office'
