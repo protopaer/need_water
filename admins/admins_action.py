@@ -360,6 +360,9 @@ async def delete_bootles_in_db(message: Message):
             return
 
         try:
+
+            # TODO ЭТО МОЖНО ЗАТОЛКАТЬ В ФУНКЦИЮ update_last_order:
+
             # Получаем последний заказ:
             last_order = await return_last_order(session)
             if not last_order:
@@ -389,6 +392,8 @@ async def delete_bootles_in_db(message: Message):
                 .values(bootles_left=new_quantity)
             )
             await session.commit()
+
+            # TODO -> здесь заканчивается рефакторинг.
 
             # Отправляем подтверждение админу:
             await message.answer(
@@ -502,7 +507,7 @@ async def get_total_bootles(message: Message) -> None:
 @url_for_delete_order.message(F.text.regexp(rf'^{DELETE_ORDER}_(\d+)$'))
 async def delete_order_by_id(message: Message) -> None:
     """
-    Удаление заявки по его номеру через команду /delete_order_<id> .
+    Удаление заявки по ее номеру через команду /delete_order_<id> .
     """
     async with AsyncSessionLocal() as session:
 
@@ -511,6 +516,7 @@ async def delete_order_by_id(message: Message) -> None:
             return
 
         # TODO Если это будет делать пользователь:
+        # ПОДУМАТЬ
 
         try:
             # Извлечение и валидация номера кабинета:
