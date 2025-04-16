@@ -13,8 +13,8 @@ from admins.admins_loading_dataset import create_office_object
 from config import AsyncSessionLocal, dp
 from constants import (ABBR_OFFICE_COUNT, ADD_BOOTLES, ADD_BUILD, ADD_OFFICE,
                        BOOTLES_ZERO, CONSTANT_WATER_SUPPLY, DELETE_BOOTLES,
-                       DELETE_OFFICE, DELETE_ORDER, MAX_BOOTLE_ACCEPT, MIN_BOOTLE_ACCEPT,
-                       MIN_BOOTLE_DELETE, NAME_OFFICE_COUNT,
+                       DELETE_OFFICE, DELETE_ORDER, MAX_BOOTLE_ACCEPT,
+                       MIN_BOOTLE_ACCEPT, MIN_BOOTLE_DELETE, NAME_OFFICE_COUNT,
                        NAME_BUILD_COUNT, OUR_TIMEZONE, TOTAL_BOOTLES)
 from function import (check_user_in_admins_list, collect_orders_for_interval,
                       get_id_from_callback_query,
@@ -41,6 +41,45 @@ url_for_delete_bootles = dp.include_router(router_delete_bootles)
 url_for_delete_office = dp.include_router(router_delete_office)
 url_for_total_bootles = dp.include_router(router_total_bootles)
 url_for_delete_order = dp.include_router(router_delete_order)
+
+
+async def update_last_order(
+    message, session, how_much=1, need_response=None, **kwargs
+):
+    """
+    Обновляем общее количество бутылей в последнем заказе.
+
+    Args:
+        how_much (int): отвечает за величину изменения количества.
+            По умолчанию 1 - для случая удаление записи
+        need_response (bool, optional): если указано True - функция
+            подготавливает ответ.
+    """
+
+    # Получаем последний заказ:
+    last_order = await return_last_order(session)
+    if not last_order:
+        await message.answer('❌ Не найдено ни одного заказа')
+        return
+
+    # Если удаляемый заказ и последний заказ совпадают - минус не нужен
+    if kwargs.get('order_number') == last_order.id:
+        return
+
+    # Обновляем количество бутылей:
+    new_quantity = last_order.bootles_left + how_much
+
+    # Выполняем обновление записи в базе данных и сохраняемся:
+    await session.execute(
+        update(Order)
+        .where(Order.id == last_order.id)
+        .values(bootles_left=new_quantity)
+    )
+    await session.commit()
+
+    # Подготавливаем ответ (опционально):
+    if need_response is not None:
+        return last_order, new_quantity
 
 
 # Обработчик команды /add_office
@@ -278,21 +317,15 @@ async def add_bootles_in_db(message: Message):
             if not add_bootles:
                 return
 
-            # Получаем последний заказ:
-            last_order = await return_last_order(session)
-            if not last_order:
-                await message.answer('❌ Не найдено ни одного заказа')
-                return
-
-            # Количество бутылей уже должно быть указано (в последнем заказе):
-            # Обновляем количество бутылей
-            new_quantity = last_order.bootles_left + add_bootles
-            await session.execute(
-                update(Order)
-                .where(Order.id == last_order.id)
-                .values(bootles_left=new_quantity)
+            # Обновляем количество бутылей из поступления:
+            # TODO подумать, что будет, если не будет найден заказ:
+            last_order, new_quantity = (
+                await update_last_order(
+                    message,
+                    session,
+                    how_much=add_bootles,
+                    need_response=True)
             )
-            await session.commit()
 
             # Отправляем подтверждение админу:
             await message.answer(
@@ -477,6 +510,8 @@ async def delete_order_by_id(message: Message) -> None:
         if not await check_user_in_admins_list(trigger=message):
             return
 
+        # TODO Если это будет делать пользователь:
+
         try:
             # Извлечение и валидация номера кабинета:
             order_number: Optional[int] = None
@@ -488,13 +523,21 @@ async def delete_order_by_id(message: Message) -> None:
                 await message.answer('❌ Неверный формат команды')
                 return
 
-            # Проверка существования заказа с данным номером (id):
+            # Проверка существования заказа с данным номером (id)
+            # Заказ должен находиться в статусе "Активная заявка":
             existing_order = await session.scalar(
-                select(Order).where(Order.id == order_number)
+                select(Order).where(
+                    Order.id == order_number,
+                    Order.in_archive == False)
             )
             if not existing_order:
                 await message.answer(f'❌ Заказ №{order_number} не найден!')
                 return
+
+            # Возвращаем одну бутыль к общему количеству (в последнем заказе):
+            await update_last_order(
+                message, session, order_number=order_number
+            )
 
             # Удаление заказа:
             await session.execute(
