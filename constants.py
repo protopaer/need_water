@@ -32,9 +32,13 @@ BOOTLES_ZERO = 5
 MIN_BOOTLE_ACCEPT = 1
 MAX_BOOTLE_ACCEPT = 150
 
+# Количество бутылей в партии при списании:
+MIN_BOOTLE_DELETE = 1
+
 # Команды для действий:
 GET_LIST = '/get_list'
-ADD_BOOTLES = '/add_bootles'
+ADD_BOOTLES = '/plus'
+DELETE_BOOTLES = '/minus'
 TOTAL_BOOTLES = '/total_bootles'
 DELETE_OFFICE = '/delete_office'
 ADD_OFFICE = 'add_office'

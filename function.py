@@ -21,6 +21,7 @@ from email.mime.multipart import MIMEMultipart
 from constants import (ADD_BOOTLES,
                        API_PHONEBOOK_AWAIT,
                        CONSTANT_WATER_SUPPLY,
+                       DELETE_BOOTLES,
                        ENCODING_IN_UTF,
                        ERROR_WHEN_GET_CODE,
                        FIRST_SECTION,
@@ -408,13 +409,16 @@ async def parse_element_from_admin_message(
     # Получение шаблона исходящего сообщения:
     text_in_message = {
         'hour': ('', 'час'),
-        'bootles': (', чтобы привезли', 'бутылей сразу'),
+        'bootles_up': (', чтобы привезли', 'бутылей сразу'),
+        'bootles_down': (', чтобы увезли', 'бутылей сразу'),
     }
 
     # Поиск команды для паттерна re (можно расширить):
     command = {
         'hour': GET_LIST,
-        'bootles': ADD_BOOTLES
+        'bootles_up': ADD_BOOTLES,  # админ добавляет бутыли (поступление)
+        'bootles_down': DELETE_BOOTLES  # админ списывает бутыли
+        # добавление команд
     }
 
     # Проверяем наличие элемента в ожидаемом словаре:

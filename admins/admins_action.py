@@ -12,8 +12,9 @@ from admins.admins_fcm import AddOfficeStates, AddBuildStates
 from admins.admins_loading_dataset import create_office_object
 from config import AsyncSessionLocal, dp
 from constants import (ABBR_OFFICE_COUNT, ADD_BOOTLES, ADD_BUILD, ADD_OFFICE,
-                       BOOTLES_ZERO, CONSTANT_WATER_SUPPLY, DELETE_OFFICE,
-                       MAX_BOOTLE_ACCEPT, MIN_BOOTLE_ACCEPT, NAME_OFFICE_COUNT,
+                       BOOTLES_ZERO, CONSTANT_WATER_SUPPLY, DELETE_BOOTLES,
+                       DELETE_OFFICE, MAX_BOOTLE_ACCEPT, MIN_BOOTLE_ACCEPT,
+                       MIN_BOOTLE_DELETE, NAME_OFFICE_COUNT,
                        NAME_BUILD_COUNT, OUR_TIMEZONE, TOTAL_BOOTLES)
 from function import (check_user_in_admins_list, collect_orders_for_interval,
                       get_id_from_callback_query,
@@ -28,12 +29,14 @@ from models import Builds, Order, Offices
 router_add_office = Router()
 router_get_list = Router()
 router_add_bootles = Router()
+router_delete_bootles = Router()
 router_delete_office = Router()
 router_total_bootles = Router()
 
 url_for_add_office = dp.include_router(router_add_office)
 url_for_get_list = dp.include_router(router_get_list)
 url_for_add_bootles = dp.include_router(router_add_bootles)
+url_for_delete_bootles = dp.include_router(router_delete_bootles)
 url_for_delete_office = dp.include_router(router_delete_office)
 url_for_total_bootles = dp.include_router(router_total_bootles)
 
@@ -266,7 +269,7 @@ async def add_bootles_in_db(message: Message):
             # Парсим количество бутылей из сообщения
             add_bootles = await parse_element_from_admin_message(
                 message,
-                'bootles',
+                'bootles_up',
                 MIN_BOOTLE_ACCEPT,
                 MAX_BOOTLE_ACCEPT
             )
@@ -291,7 +294,7 @@ async def add_bootles_in_db(message: Message):
 
             # Отправляем подтверждение админу:
             await message.answer(
-                f'✅ Добавлено бутылей: {add_bootles}.\n'
+                f'📈 Добавлено бутылей: {add_bootles}.\n'
                 f'Теперь общее количество: {new_quantity}'
             )
             logging.info(
@@ -305,6 +308,70 @@ async def add_bootles_in_db(message: Message):
             await message.answer('❌ Произошла ошибка при обновлении данных')
             logging.error(
                 f'Ошибка в add_bootles_in_db: {str(e)}', exc_info=True
+            )
+
+
+@router_delete_bootles.message(
+    lambda message: message.text.startswith(f'{DELETE_BOOTLES}_')
+)
+async def delete_bootles_in_db(message: Message):
+    """
+    Удаляет (списывает) бутыли относительно их фактического количества.
+    """
+    async with AsyncSessionLocal() as session:
+
+        # Проверяем права администратора:
+        if not await check_user_in_admins_list(trigger=message):
+            return
+
+        try:
+            # Получаем последний заказ:
+            last_order = await return_last_order(session)
+            if not last_order:
+                await message.answer('❌ Не найдено ни одного заказа')
+                return
+
+            # Расчитываем лимит на списание бутылей
+            # (не больше, чем есть сейчас):
+            max_bootle_delete = int(last_order.bootles_left)
+
+            # Парсим количество бутылей из сообщения
+            delete_bootles = await parse_element_from_admin_message(
+                message,
+                'bootles_down',
+                MIN_BOOTLE_DELETE,
+                max_bootle_delete
+            )
+            if not delete_bootles:
+                return
+
+            # Количество бутылей уже должно быть указано (в последнем заказе):
+            # Обновляем количество бутылей
+            new_quantity = max_bootle_delete - delete_bootles
+            await session.execute(
+                update(Order)
+                .where(Order.id == last_order.id)
+                .values(bootles_left=new_quantity)
+            )
+            await session.commit()
+
+            # Отправляем подтверждение админу:
+            await message.answer(
+                f'📉 Списано бутылей: {delete_bootles}.\n'
+                f'Осталось: {new_quantity}.'
+            )
+            logging.info(
+                f'Админ списал {delete_bootles} '
+                f'бутылей с заказа {last_order.id}.'
+            )
+
+            await session.commit()
+
+        except Exception as e:
+            await session.rollback()
+            await message.answer('❌ Произошла ошибка при обновлении данных')
+            logging.error(
+                f'Ошибка в delete_bootles_in_db: {str(e)}', exc_info=True
             )
 
 
