@@ -61,6 +61,7 @@ from keyboards import (create_all_builds_keyboard,
                        create_all_offices_keyboard,
                        confirm_keyboard,
                        remove_keyboard)
+from middleware import NetworkErrorMiddleware
 from models import Base, Offices, TgAccounts
 from users.users_fcm import RegistrationStates
 
@@ -555,6 +556,10 @@ async def main() -> None:
             raise ValueError('Не указан токен бота в переменных окружения')
 
         bot = await setup_bot(token)
+
+        # # Регистрируем middleware:
+        # dp.update.middleware(NetworkErrorMiddleware())
+
     except Exception as e:
         logging.critical(f'Ошибка настройки бота: {e}')
         sys.exit(1)
