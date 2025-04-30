@@ -61,7 +61,7 @@ from keyboards import (create_all_builds_keyboard,
                        create_all_offices_keyboard,
                        confirm_keyboard,
                        remove_keyboard)
-from middleware import NetworkErrorMiddleware
+# from middleware import NetworkErrorMiddleware
 from models import Base, Offices, TgAccounts
 from users.users_fcm import RegistrationStates
 

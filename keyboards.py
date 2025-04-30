@@ -22,7 +22,12 @@ async def create_all_builds_keyboard(
     path = kwargs.get('path')
 
     # Проверка, что вода доступна для заказа или ответ «извините»:
-    if await return_bootles(session) == BOOTLES_ZERO and message:
+
+    # Получаем кол-во бутылей в последнем заказе:
+    bootles_left_now = await return_bootles(session)
+
+    # изменил на меньше или равно (на случай, если перед этим списали партию)
+    if bootles_left_now and bootles_left_now <= BOOTLES_ZERO and message:
         await message.answer(f'❌ {choice(SORRY)}')
         return None
 
