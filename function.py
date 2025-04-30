@@ -5,6 +5,7 @@ from aiohttp import ClientSession, ClientError
 from collections import defaultdict
 from datetime import time, datetime
 from http import HTTPStatus
+from random import choice
 from typing import Optional, Union
 from zoneinfo import ZoneInfo
 
@@ -19,7 +20,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
 from constants import (ADD_BOOTLES,
-                       API_PHONEBOOK_AWAIT,
+                       API_PHONEBOOK_AWAIT, BOOTLES_ZERO,
                        CONSTANT_WATER_SUPPLY,
                        DELETE_BOOTLES,
                        ENCODING_IN_UTF,
@@ -32,7 +33,7 @@ from constants import (ADD_BOOTLES,
                        SECOND_SECTION,
                        SECOND_SECTION_EMOJI,
                        NEXT_WEEKDAY_EMOJI,
-                       SECTION_MINUTES,
+                       SECTION_MINUTES, SORRY,
                        SUCCESSFUL_AUTH_IN_SMTP_STATUS_CODE)
 from filters import (check_active_orders,
                      check_active_orders_for_current_tg_account,
@@ -264,6 +265,23 @@ async def return_bootles(session) -> Optional[int]:
         return None
     # Возвращаем количество бутылей, если заказ существует
     return last_order.bootles_left
+
+
+async def return_sorry_if_no_bootles(
+    session,
+    message_elem,
+    **kwargs
+) -> bool:
+    """Направляет сообщение с извинениями, если достигли минимума."""
+    # Получаем кол-во бутылей в последнем заказе:
+    if not (bootles_left_now := kwargs.get('bootles_left_now')):
+        bootles_left_now = await return_bootles(session)
+
+    # если кол-во существует (есть записи в базе) и кол-во бутылей меньше min:
+    if bootles_left_now and bootles_left_now <= BOOTLES_ZERO:
+        await message_elem.answer(f'❌ {choice(SORRY)}')
+        return True
+    return False
 
 
 async def check_office_exists(callback_query: CallbackQuery, office) -> bool:

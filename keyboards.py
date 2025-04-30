@@ -1,12 +1,11 @@
-from random import choice
 from typing import Optional
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from constants import BOOTLES_ZERO, OFFICE_IN_LINE, SORRY
+from constants import OFFICE_IN_LINE
 from filters import select_all_offices_in_build
-from function import get_favorite_office, return_bootles
+from function import get_favorite_office, return_sorry_if_no_bootles
 from models import Builds
 
 
@@ -21,14 +20,8 @@ async def create_all_builds_keyboard(
     message = kwargs.get('message')  # <-- забыл зачем сделал так!
     path = kwargs.get('path')
 
-    # Проверка, что вода доступна для заказа или ответ «извините»:
-
-    # Получаем кол-во бутылей в последнем заказе:
-    bootles_left_now = await return_bootles(session)
-
-    # изменил на меньше или равно (на случай, если перед этим списали партию)
-    if bootles_left_now and bootles_left_now <= BOOTLES_ZERO and message:
-        await message.answer(f'❌ {choice(SORRY)}')
+    # Проверка, что вода доступна для заказа или ответ «извините» и выход:
+    if await return_sorry_if_no_bootles(session, message):
         return None
 
     # Создаем заготовку кнопок:

@@ -54,6 +54,7 @@ from function import (add_orgers_in_archive,
                       get_workday_or_not,
                       return_bootles,
                       return_office,
+                      return_sorry_if_no_bootles,
                       send_email,
                       send_message_when_water_left,
                       start_registration)
@@ -381,6 +382,14 @@ async def process_confirm_callback(callback_query: CallbackQuery, bot) -> None:
             logging.warning(
                 f'Задано дефолтное значение кол-ва бутылей ({BOOTLES_LEFT}).'
             )
+
+        # Рубим тех, у кого-то остались незакрытые клавиатуры:
+        if await return_sorry_if_no_bootles(
+            session,
+            callback_query.message,
+            bootles_left_now=bootles_left
+        ):
+            return None
 
         # Создаем новую «заявку на воду» в таблице Order:
         result = await create_new_order_in_db(
