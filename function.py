@@ -28,7 +28,7 @@ from constants import (ADD_BOOTLES,
                        FIRST_SECTION,
                        FIRST_SECTION_EMOJI,
                        GET_LIST,
-                       GIVE_ME_ADDRESS_CODE,
+                       GIVE_ME_ADDRESS_CODE, HOLIDAY,
                        OUR_TIMEZONE,
                        SECOND_SECTION,
                        SECOND_SECTION_EMOJI,
@@ -61,12 +61,22 @@ def get_workday_or_not(hour=None, last_delivery=SECOND_SECTION) -> bool:
     """
     Проверяет, рабочий ли сегодня день и время (если передано).
 
+    Добавлен костыль с праздничными днями (в дальнейшем исправить!!!).
+
     Вернёт True если:
         - (нет hour) сегодня рабочий день
         - (указан hour) сегодня рабочий день и возможна доставка
     """
-    today = datetime.now().isoweekday()  # 1-7 (пн-вс)
-    is_workday = today < 6  # Пн-Пт
+    today = datetime.now()
+
+    # Проверяем праздничные дни:
+    today_date = today.date()
+    if today_date in HOLIDAY:
+        return False
+
+    # Проверяем день недели:
+    today_weekday = today.isoweekday()  # 1-7 (пн-вс)
+    is_workday = today_weekday < 6  # Пн-Пт
 
     if not is_workday:
         return False  # False если сегодня выходной

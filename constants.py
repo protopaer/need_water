@@ -1,3 +1,4 @@
+from datetime import datetime
 import os
 from pathlib import Path
 
@@ -15,7 +16,12 @@ SECOND_SECTION_EMOJI = '🕐'
 SECTION_MINUTES = 0
 NEXT_WEEKDAY_EMOJI = '📅'
 OUR_TIMEZONE = 'Asia/Yekaterinburg'
-
+HOLIDAY = [
+    datetime(2025, 5, 1).date(),
+    datetime(2025, 5, 2).date(),
+    datetime(2025, 5, 8).date(),
+    datetime(2025, 5, 9).date()
+]
 # Количество часов (старт):
 MIN_HOUR_IN_DAYS = 0
 MAX_HOUR_IN_DAYS = 24
