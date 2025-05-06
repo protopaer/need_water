@@ -51,7 +51,7 @@ from function import (add_orgers_in_archive,
                       get_id_from_callback_query,
                       get_slot_order,
                       get_favorite_office,
-                      get_workday_or_not,
+                      is_workday_today,
                       return_bootles,
                       return_office,
                       return_sorry_if_no_bootles,
@@ -102,7 +102,7 @@ async def send_interval_message(bot: Bot, hour: int) -> None:
     """
     async with AsyncSessionLocal() as session:
         # Если сегодня рабочий день:
-        if get_workday_or_not():
+        if is_workday_today():
             try:
                 # Получаем данные о заказах для указанного интервала
                 orders = await collect_orders_for_interval(session, hour)

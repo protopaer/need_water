@@ -16,11 +16,21 @@ SECOND_SECTION_EMOJI = '🕐'
 SECTION_MINUTES = 0
 NEXT_WEEKDAY_EMOJI = '📅'
 OUR_TIMEZONE = 'Asia/Yekaterinburg'
+# Выходные дни в рабочие дни:
 HOLIDAY = [
     datetime(2025, 5, 1).date(),
     datetime(2025, 5, 2).date(),
     datetime(2025, 5, 8).date(),
-    datetime(2025, 5, 9).date()
+    datetime(2025, 5, 9).date(),
+    datetime(2025, 6, 12).date(),
+    datetime(2025, 6, 13).date(),
+    datetime(2025, 11, 3).date(),
+    datetime(2025, 11, 4).date(),
+    datetime(2025, 12, 31).date()
+]
+# Рабочие дни в выходные дни:
+NOT_DAY_OFF = [
+    datetime(2025, 11, 1).date()  # пока не работает!
 ]
 # Количество часов (старт):
 MIN_HOUR_IN_DAYS = 0

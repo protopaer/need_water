@@ -20,7 +20,8 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
 from constants import (ADD_BOOTLES,
-                       API_PHONEBOOK_AWAIT, BOOTLES_ZERO,
+                       API_PHONEBOOK_AWAIT,
+                       BOOTLES_ZERO,
                        CONSTANT_WATER_SUPPLY,
                        DELETE_BOOTLES,
                        ENCODING_IN_UTF,
@@ -28,12 +29,15 @@ from constants import (ADD_BOOTLES,
                        FIRST_SECTION,
                        FIRST_SECTION_EMOJI,
                        GET_LIST,
-                       GIVE_ME_ADDRESS_CODE, HOLIDAY,
+                       GIVE_ME_ADDRESS_CODE,
+                       HOLIDAY,
+                       NOT_DAY_OFF,
                        OUR_TIMEZONE,
                        SECOND_SECTION,
                        SECOND_SECTION_EMOJI,
                        NEXT_WEEKDAY_EMOJI,
-                       SECTION_MINUTES, SORRY,
+                       SECTION_MINUTES,
+                       SORRY,
                        SUCCESSFUL_AUTH_IN_SMTP_STATUS_CODE)
 from filters import (check_active_orders,
                      check_active_orders_for_current_tg_account,
@@ -46,7 +50,7 @@ from models import Offices, Order
 from users.users_fcm import RegistrationStates
 
 
-load_dotenv()
+load_dotenv()  # Загрузка переменных окружения:
 
 
 def get_datetime_in_timezone_for_message(message_callback):
@@ -57,34 +61,37 @@ def get_datetime_in_timezone_for_message(message_callback):
     return message_date.astimezone(ZoneInfo(OUR_TIMEZONE))
 
 
-def get_workday_or_not(hour=None, last_delivery=SECOND_SECTION) -> bool:
+def is_workday_today(concrete_hour: Optional[int] = None) -> bool:
     """
     Проверяет, рабочий ли сегодня день и время (если передано).
 
-    Добавлен костыль с праздничными днями (в дальнейшем исправить!!!).
+    Upd (переменные живут в constants.py):
+    - Добавлены праздничныме дни (в дальнейшем - придется расширять список).
+    - Добавлены рабочие смены в выходные дни (тоже расширять для 2026, ...)
+
+    args:
+        - concrete_hour - указывается конкретный час
 
     Вернёт True если:
         - (нет hour) сегодня рабочий день
         - (указан hour) сегодня рабочий день и возможна доставка
     """
-    today = datetime.now()
+    today = datetime.now()  # сегодня
+    today_weekday = today.isoweekday()  # 1-7 (пн-вс)
 
-    # Проверяем праздничные дни:
-    today_date = today.date()
-    if today_date in HOLIDAY:
+    # Проверяем праздничные дни (согласно производственного календаря-2025):
+    if today.date() in HOLIDAY:
         return False
 
-    # Проверяем день недели:
-    today_weekday = today.isoweekday()  # 1-7 (пн-вс)
-    is_workday = today_weekday < 6  # Пн-Пт
+    # Проверяем день недели (учитываются рабочие смены в выходные дни):
+    if today_weekday > 5 and today.date() not in NOT_DAY_OFF:
+        return False  # если сб|вс
 
-    if not is_workday:
-        return False  # False если сегодня выходной
+    if concrete_hour is None:
+        return True  # если сегодня - будни, а время не учитывается.
 
-    if hour is None:
-        return True  # True если сегодня будни, а время не учитывается
-
-    return hour < last_delivery  # True если будни и впереди есть доставка.
+    # Вернёт True, если сегодня будни и впереди есть доставка:
+    return concrete_hour < SECOND_SECTION
 
 
 def get_admins_account() -> Optional[list]:
@@ -119,7 +126,7 @@ def get_slot_order(localized_time: datetime):
     """
     order_time = localized_time.time()
 
-    if not get_workday_or_not(order_time.hour):
+    if not is_workday_today(order_time.hour):
         return (
             NEXT_WEEKDAY_EMOJI,
             f'на следующий рабочий день в {FIRST_SECTION} часов'
