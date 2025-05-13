@@ -53,7 +53,7 @@ class Offices(Base):
     # Отношения
     building = relationship('Builds', back_populates='offices')
     orders = relationship('Order', back_populates='office')
-    tg_accounts = relationship('TgAccounts', back_populates='office')  # Изменено имя
+    tg_accounts = relationship('TgAccounts', back_populates='office')
 
     def __repr__(self):
         return f'{self.abbr} /каб. {self.office_number}/'
@@ -66,7 +66,7 @@ class TgAccounts(Base):
     last_office = Column(Integer, ForeignKey('offices.id'), default=None)
 
     # Отношения
-    office = relationship('Offices', back_populates='tg_accounts')  # Согласовано с изменением выше
+    office = relationship('Offices', back_populates='tg_accounts')
 
     user_orders = relationship(  # Изменено имя с orders на user_orders
         'Order',
@@ -89,4 +89,4 @@ class Order(Base):
 
     # Отношения
     office = relationship('Offices', back_populates='orders')
-    user_account = relationship('TgAccounts', back_populates='user_orders')  # Согласовано с изменением выше
+    user_account = relationship('TgAccounts', back_populates='user_orders')
