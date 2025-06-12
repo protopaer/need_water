@@ -530,13 +530,17 @@ async def delete_order_by_id(message: Message) -> None:
                 return
 
             # Проверка существования заказа с данным номером (id)
-            # Заказ должен находиться в статусе "Активная заявка":
+            # ПОКА НЕТ! Заказ должен находиться в статусе "Активная заявка":
             existing_order = await session.scalar(
                 select(Order).where(
                     Order.id == order_number,
-                    # Order.in_archive == False
+                    # Order.in_archive == False  # Пока нет
                 )
             )
+            if existing_order.in_archive:
+                await message.answer(f'❌ Заказ №{order_number} уже в архиве!')
+                return
+
             if not existing_order:
                 await message.answer(f'❌ Заказ №{order_number} не найден!')
                 return
