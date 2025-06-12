@@ -534,7 +534,8 @@ async def delete_order_by_id(message: Message) -> None:
             existing_order = await session.scalar(
                 select(Order).where(
                     Order.id == order_number,
-                    Order.in_archive == False)
+                    # Order.in_archive == False
+                )
             )
             if not existing_order:
                 await message.answer(f'❌ Заказ №{order_number} не найден!')
