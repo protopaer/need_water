@@ -44,6 +44,7 @@ from function import (add_orgers_in_archive,
                       check_authorization,
                       collect_orders_for_interval,
                       create_new_order_in_db,
+                      create_task_for_delete_message_after_delay,
                       create_user_attrs,
                       format_orders_message,
                       get_admins_account,
@@ -202,7 +203,8 @@ async def command_start_handler(message: Message, state: FSMContext) -> None:
             REPEAT_TEXT + START_TEXT[1:]
         )
 
-        await message.answer(all_text, reply_markup=keyboard)
+        sent_message = await message.answer(all_text, reply_markup=keyboard)
+        await create_task_for_delete_message_after_delay(sent_message)
 
 
 @dp.message(Command('map'))
@@ -334,12 +336,13 @@ async def process_callback_button(callback_query: CallbackQuery) -> None:
         await remove_keyboard(callback_query.message)
 
         # Если найден - отправляем запрос на подтверждение:
-        await callback_query.message.answer(
+        msg = await callback_query.message.answer(
             f'Выбран кабинет:\n\n{str(office.abbr)} '
             f'\n{str(office.name)}\n\nВсё верно?',
             reply_markup=confirm_keyboard(office_id)
         )
         logging.info(f'{user_in_chat} нажал кнопку кабинета {office}.')
+        await create_task_for_delete_message_after_delay(message=msg)
 
 
 @dp.callback_query(lambda c: c.data.startswith('confirm_'))
@@ -446,11 +449,13 @@ async def process_cancel_callback(callback_query: CallbackQuery):
     # Сбор данных:
     office_id = get_id_from_callback_query(
         callback_query, 'back_up_from_office_')
-    # office_id = json.loads(callback_query.data).get('office_id')
 
     # Очистка:
     await remove_keyboard(callback_query.message)
-    await callback_query.message.answer('❌ Выбор кабинета отменен.')
+    msg_refusal = (
+        await callback_query.message.answer('❌ Выбор кабинета отменен.')
+    )
+    await msg_refusal.delete()
 
     # Логгирование:
     user_in_chat = create_user_attrs(callback_query)
@@ -460,9 +465,10 @@ async def process_cancel_callback(callback_query: CallbackQuery):
     async with AsyncSessionLocal() as session:
         office = await session.get(Offices, office_id)
         keyboard = await create_all_offices_keyboard(session, office.build_id)
-        await callback_query.message.answer(
+        msg = await callback_query.message.answer(
             START_AGAIN_OFFICE, reply_markup=keyboard
         )
+        await create_task_for_delete_message_after_delay(message=msg)
 
 
 async def setup_bot(token: str) -> Bot:

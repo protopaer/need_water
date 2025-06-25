@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 import re
@@ -31,6 +32,7 @@ from constants import (ADD_BOOTLES,
                        GET_LIST,
                        GIVE_ME_ADDRESS_CODE,
                        HOLIDAY,
+                       KEYBOARD_DELETE_FROM_SECONDS,
                        NOT_DAY_OFF,
                        OUR_TIMEZONE,
                        SECOND_SECTION,
@@ -561,3 +563,18 @@ async def send_message_when_water_left(bot: Bot, bootles_left) -> None:
                 )
             except Exception as e:
                 logging.error(f'Ошибка отправки: {e}')
+
+
+async def create_task_for_delete_message_after_delay(
+        message: Message,
+        delay: int = KEYBOARD_DELETE_FROM_SECONDS
+):
+    """Удаляет сообщение (в т.ч. с клавой через указанное количество секунд."""
+    async def delete_message(
+        message: Message,
+        delay: int
+    ):
+        await asyncio.sleep(delay)
+        await message.delete()
+
+    asyncio.create_task(await delete_message(message, delay))

@@ -35,6 +35,7 @@ NOT_DAY_OFF = [
 # Количество часов (старт):
 MIN_HOUR_IN_DAYS = 0
 MAX_HOUR_IN_DAYS = 24
+KEYBOARD_DELETE_FROM_SECONDS = 60
 
 # Количество бутылей (старт):
 # 🔥 важно указать правильное (фактическое) кол-во на старте:
