@@ -44,6 +44,8 @@ BOOTLES_LEFT = int(os.getenv('bootles_left'))
 CONSTANT_WATER_SUPPLY = int(os.getenv('constant_water_supply'))
 # Когда пользователи начинают грустить (Неснижаемый минимальный запас):
 BOOTLES_ZERO = 5
+# Когда пользователь стал опытным и ему не нужны подсказки:
+LEN_ORDERS_FOR_SENIOR_USER = 5
 
 # Количество бутылей в партии при поступлении:
 MIN_BOOTLE_ACCEPT = 1

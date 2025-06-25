@@ -12,7 +12,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, CallbackQuery, FSInputFile
 from aiogram.utils.backoff import BackoffConfig
 from apscheduler.triggers.cron import CronTrigger
-from sqlalchemy import insert, update
+from sqlalchemy import insert, select, update
 
 from admins.admins_action import (url_for_add_office,
                                   url_for_get_list,
@@ -28,6 +28,7 @@ from constants import (AWAIT_DISABLE_NOTIFICATION,
                        BOOTLES_LEFT,
                        FIRST_SECTION,
                        INSTRUCTION_NEW_ORDER,
+                       LEN_ORDERS_FOR_SENIOR_USER,
                        OUR_TIMEZONE,
                        REGISTRATION_DONE,
                        REPEAT_TEXT, RULES,
@@ -64,7 +65,7 @@ from keyboards import (create_all_builds_keyboard,
                        confirm_keyboard,
                        remove_keyboard)
 # from middleware import NetworkErrorMiddleware
-from models import Base, Offices, TgAccounts
+from models import Base, Offices, Order, TgAccounts
 from users.users_fcm import RegistrationStates
 
 
@@ -434,11 +435,17 @@ async def process_confirm_callback(callback_query: CallbackQuery, bot) -> None:
         # Проверка и направление уведомления админам о снижении остатков воды:
         await send_message_when_water_left(bot, bootles_left_again)
 
-        # Встать на паузу и отправить инструкцию, как сделать новую заявку:
-        await asyncio.sleep(AWAIT_DISABLE_NOTIFICATION)
-        await callback_query.message.answer(
-            INSTRUCTION_NEW_ORDER, disable_notification=True
-        )
+        total_orders_for_user = (await session.execute(
+            select(Order)
+            .where(Order.tg_account_id == tg_account_id)
+        )).all()
+        if len(total_orders_for_user) < LEN_ORDERS_FOR_SENIOR_USER:
+            # Встать на паузу и отправить инструкцию, как сделать новую заявку:
+            await asyncio.sleep(AWAIT_DISABLE_NOTIFICATION)
+            await callback_query.message.answer(
+                INSTRUCTION_NEW_ORDER,
+                disable_notification=True
+            )
 
 
 @dp.callback_query(lambda c: c.data.startswith('back_up_from_office_'))
