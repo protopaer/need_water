@@ -297,7 +297,7 @@ async def return_sorry_if_no_bootles(
         bootles_left_now = await return_bootles(session)
 
     # если кол-во существует (есть записи в базе) и кол-во бутылей меньше min:
-    if bootles_left_now and bootles_left_now <= BOOTLES_ZERO:
+    if bootles_left_now is not None and bootles_left_now <= BOOTLES_ZERO:
         await message_elem.answer(f'❌ {choice(SORRY)}')
         return True
     return False
