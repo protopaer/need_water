@@ -20,6 +20,7 @@ OUR_TIMEZONE = 'Asia/Yekaterinburg'
 HOLIDAY = [
     datetime(2026, 2, 23).date(),
     datetime(2026, 3, 9).date(),
+    datetime(2026, 5, 1).date(),
     datetime(2026, 5, 11).date(),
     datetime(2026, 6, 12).date(),
     datetime(2026, 11, 4).date(),
