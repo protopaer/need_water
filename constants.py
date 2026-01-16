@@ -18,15 +18,12 @@ NEXT_WEEKDAY_EMOJI = '📅'
 OUR_TIMEZONE = 'Asia/Yekaterinburg'
 # Выходные дни в рабочие дни:
 HOLIDAY = [
-    datetime(2025, 5, 1).date(),
-    datetime(2025, 5, 2).date(),
-    datetime(2025, 5, 8).date(),
-    datetime(2025, 5, 9).date(),
-    datetime(2025, 6, 12).date(),
-    datetime(2025, 6, 13).date(),
-    datetime(2025, 11, 3).date(),
-    datetime(2025, 11, 4).date(),
-    datetime(2025, 12, 31).date()
+    datetime(2026, 2, 23).date(),
+    datetime(2026, 3, 9).date(),
+    datetime(2026, 5, 11).date(),
+    datetime(2026, 6, 12).date(),
+    datetime(2026, 11, 4).date(),
+    datetime(2026, 12, 31).date()
 ]
 # Рабочие дни в выходные дни:
 NOT_DAY_OFF = [
